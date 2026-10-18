@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { perfilSchema } from "./perfil";
+
 const perfilValido = {
   nome: "Ana Silva",
   curso: "Ciência da Computação",
@@ -13,41 +14,42 @@ describe("perfilSchema", () => {
     expect(perfilSchema.safeParse(perfilValido).success).toBe(true);
   });
 
-it("aceita LinkedIn e foto ausentes", () => {
-  expect(
-    perfilSchema.safeParse({
-      nome: "Ana Silva",
-      curso: "Ciência da Computação",
-      cargo_student_club: "Desenvolvedora",
-    }).success,
-  ).toBe(true);
-});
+  it("aceita LinkedIn e foto ausentes", () => {
+    expect(
+      perfilSchema.safeParse({
+        nome: "Ana Silva",
+        curso: "Ciência da Computação",
+        cargo_student_club: "Desenvolvedora",
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejeita nome ausente", () => {
-  expect(
-    perfilSchema.safeParse({
-      curso: "Ciência da Computação",
-      cargo_student_club: "Desenvolvedora",
-    }).success,
-  ).toBe(false);
-});
+    expect(
+      perfilSchema.safeParse({
+        curso: "Ciência da Computação",
+        cargo_student_club: "Desenvolvedora",
+      }).success,
+    ).toBe(false);
+  });
 
   it("rejeita curso ausente", () => {
-  expect(
-    perfilSchema.safeParse({
-      nome: "Ana Silva",
-      cargo_student_club: "Desenvolvedora",
-    }).success,
-  ).toBe(false);
-});
+    expect(
+      perfilSchema.safeParse({
+        nome: "Ana Silva",
+        cargo_student_club: "Desenvolvedora",
+      }).success,
+    ).toBe(false);
+  });
 
-it("rejeita cargo ausente", () => {
-  expect(
-    perfilSchema.safeParse({
-      nome: "Ana Silva",
-      curso: "Ciência da Computação",
-    }).success,
-  ).toBe(false);
-});
+  it("rejeita cargo ausente", () => {
+    expect(
+      perfilSchema.safeParse({
+        nome: "Ana Silva",
+        curso: "Ciência da Computação",
+      }).success,
+    ).toBe(false);
+  });
 
   it("rejeita nome abaixo do mínimo", () => {
     expect(
@@ -59,7 +61,7 @@ it("rejeita cargo ausente", () => {
     expect(
       perfilSchema.safeParse({
         ...perfilValido,
-        curso: "C".repeat(121),
+        curso: "C".repeat(101),
       }).success,
     ).toBe(false);
   });
@@ -99,12 +101,11 @@ it("rejeita cargo ausente", () => {
       }).success,
     ).toBe(true);
   });
-});
 
   it("aceita os limites máximos dos campos textuais", () => {
     const resultado = perfilSchema.safeParse({
-      nome: "N".repeat(100),
-      curso: "C".repeat(120),
+      nome: "N".repeat(150),
+      curso: "C".repeat(100),
       cargo_student_club: "C".repeat(100),
       linkedin_url: "",
       foto_path: null,
@@ -113,11 +114,11 @@ it("rejeita cargo ausente", () => {
     expect(resultado.success).toBe(true);
   });
 
-  it("rejeita nome acima de 100 caracteres", () => {
+  it("rejeita nome acima de 150 caracteres", () => {
     expect(
       perfilSchema.safeParse({
         ...perfilValido,
-        nome: "N".repeat(101),
+        nome: "N".repeat(151),
       }).success,
     ).toBe(false);
   });
@@ -173,11 +174,11 @@ it("rejeita cargo ausente", () => {
     ).toBe(false);
   });
 
-  it("rejeita LinkedIn acima de 2048 caracteres", () => {
+  it("rejeita LinkedIn acima de 255 caracteres", () => {
     expect(
       perfilSchema.safeParse({
         ...perfilValido,
-        linkedin_url: `https://linkedin.com/${"a".repeat(2040)}`,
+        linkedin_url: `https://linkedin.com/${"a".repeat(240)}`,
       }).success,
     ).toBe(false);
   });
@@ -190,3 +191,4 @@ it("rejeita cargo ausente", () => {
       }).success,
     ).toBe(false);
   });
+});
