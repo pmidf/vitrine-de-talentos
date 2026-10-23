@@ -1,6 +1,6 @@
-# Vitrine dos Saberes
+# Vitrine de Talentos
 
-**Vitrine dos Saberes** é uma plataforma desenvolvida em Next.js e Supabase projetada para gerenciamento e exibição de talentos do PMI Student Club, contando com um painel administrativo completo e sincronização automática de usuários com o banco PostgreSQL.
+**Vitrine de Talentos** é uma plataforma desenvolvida em Next.js e Supabase projetada para gerenciamento e exibição de talentos do PMI Student Club, contando com um painel administrativo completo e sincronização automática de usuários com o banco PostgreSQL.
 
 ---
 
