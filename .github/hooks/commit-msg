@@ -1,0 +1,32 @@
+#!/bin/sh
+# Valida a mensagem de commit conforme o Guia de Versionamento.
+# Ative com: git config core.hooksPath .github/hooks
+
+FIRST_LINE=$(head -n1 "$1")
+
+# Merges e reverts gerados pelo Git passam direto
+case "$FIRST_LINE" in
+  Merge*|Revert*) exit 0 ;;
+esac
+
+PATTERN="^SCRUM-[0-9]+: [a-záéíóúâêôãõç]"
+
+if ! echo "$FIRST_LINE" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "❌ Commit bloqueado! Mensagem fora do padrão."
+  echo ""
+  echo "   Formato obrigatório: SCRUM-XXX: verbo no presente + descrição"
+  echo "   Exemplo: SCRUM-105: adiciona validação do perfil"
+  echo ""
+  exit 1
+fi
+
+# Conta letras, não bytes: acentos ocupam 2 bytes em UTF-8
+LENGTH=$(printf '%s' "$FIRST_LINE" | LC_ALL=C tr -d '\200-\277' | wc -c)
+
+if [ "$LENGTH" -gt 72 ]; then
+  echo ""
+  echo "❌ Commit bloqueado! A primeira linha tem $LENGTH caracteres (máximo 72)."
+  echo ""
+  exit 1
+fi
