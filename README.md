@@ -17,7 +17,7 @@
 
 Antes de iniciar, certifique-se de ter instalado em sua máquina:
 
-- [Node.js](https://nodejs.org/) (versão 20.9 ou superior; recomendado: LTS mais recente)
+- [Node.js](https://nodejs.org/) (versão 22.13 ou superior, exigida pelos clientes atuais do Supabase e pelas ferramentas de teste)
 - [Git](https://git-scm.com/)
 - [Docker Desktop](https://www.docker.com/) (necessário para rodar o ambiente local do Supabase)
 
