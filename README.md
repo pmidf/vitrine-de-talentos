@@ -17,7 +17,7 @@
 
 Antes de iniciar, certifique-se de ter instalado em sua máquina:
 
-- [Node.js](https://nodejs.org/) (versão LTS recomendada)
+- [Node.js](https://nodejs.org/) (versão 20.9 ou superior; recomendado: LTS mais recente)
 - [Git](https://git-scm.com/)
 - [Docker Desktop](https://www.docker.com/) (necessário para rodar o ambiente local do Supabase)
 
@@ -29,35 +29,54 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 
 ```bash
 git clone https://github.com/pmidf/vitrine-de-talentos.git
-cd vitrine-dos-saberes
+cd vitrine-de-talentos
+git config core.hooksPath .github/hooks
 ```
+
+O último comando ativa o validador de mensagens de commit (veja `docs/CONTRIBUICAO.md`).
 
 ---
 
-### 2. Instalar as Dependências
+### 2. Rodar o Front-end
+
+O front-end fica na pasta `frontend/`. Todos os comandos abaixo são executados **dentro dela**:
 
 ```bash
+cd frontend
 npm install
+npm run dev
 ```
+
+Abra [http://localhost:3000/voluntarios](http://localhost:3000/voluntarios) no navegador.
+
+Por enquanto, a galeria usa **dados fictícios** (`frontend/lib/mock-voluntarios.ts`), então o front roda sem configurar o banco.
+
+Outros comandos úteis (também dentro de `frontend/`):
+
+| Comando | O que faz |
+|---|---|
+| `npm test` | Roda os testes |
+| `npm run lint` | Verifica o padrão do código |
+| `npm run build` | Gera a versão de produção (bom para conferir antes do PR) |
 
 ---
 
-### 3. Configurar as Variáveis de Ambiente
+### 3. Configurar as Variáveis de Ambiente (quando o front usar o banco)
 
-Crie o arquivo `.env.local` na raiz do projeto com base no arquivo de exemplo `.env.example`:
+Só será necessário quando a galeria passar a buscar os dados no Supabase. Crie o arquivo dentro de `frontend/`, a partir do exemplo:
 
 ```bash
-cp .env.example .env.local
+cp supabase/.env.example frontend/.env.local
 ```
 
-No seu arquivo `.env.local`, certifique-se de preencher com as credenciais do seu ambiente (local ou nuvem):
+E preencha com as credenciais do seu ambiente (local ou nuvem):
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase_aqui
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-local-ou-nuvem
 ```
 
-*Nota: O arquivo `.env.local` está listado no `.gitignore` e jamais deve ser versionado.*
+*Nota: o `.env.local` está no `.gitignore` e jamais deve ser versionado.*
 
 ---
 
