@@ -1,0 +1,11 @@
+# Qualquer alteração exige aprovação da Ana
+*                       @anabheinz
+
+# Migrations exigem aprovação da Pietra
+/supabase/migrations/   @pietrapaz @anabheinz
+
+# Backend exige aprovação do Matheus
+/backend/               @mhsilvaworks @anabheinz
+
+# Frontend exige aprovação da Maria Rita
+/frontend/              @mariagramosa @anabheinz
