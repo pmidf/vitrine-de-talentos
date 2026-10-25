@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireAdmin } from "./require-admin";
 
-const mocks = vi.hoisted(() => ({ getUser: vi.fn(), maybeSingle: vi.fn(), redirect: vi.fn(), eq: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connection: vi.fn(), getUser: vi.fn(), maybeSingle: vi.fn(), redirect: vi.fn(), eq: vi.fn() }));
 vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("next/server", () => ({ connection: mocks.connection }));
 vi.mock("../supabase/server", () => ({ createClient: async () => ({
   auth: { getUser: mocks.getUser },
   from: () => ({ select: () => ({ eq: mocks.eq }) }),
@@ -11,12 +12,20 @@ vi.mock("../supabase/server", () => ({ createClient: async () => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.connection.mockResolvedValue(undefined);
   mocks.getUser.mockResolvedValue({ data: { user: { id: "admin-id" } }, error: null });
   mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
   mocks.maybeSingle.mockResolvedValue({ data: { status_admin: true }, error: null });
 });
 
 describe("acesso administrativo no servidor", () => {
+  it("preserva a suspensão do Next.js sem consultar a sessão no prerender", async () => {
+    const suspension = new Error("prerender interrompido pelo framework");
+    mocks.connection.mockRejectedValue(suspension);
+    await expect(requireAdmin()).rejects.toBe(suspension);
+    expect(mocks.getUser).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
   it("aceita apenas administrador ativo vinculado ao usuário autenticado", async () => {
     await requireAdmin();
     expect(mocks.eq).toHaveBeenCalledWith("id_admin", "admin-id");

@@ -1,6 +1,13 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { Suspense } from "react";
 
-export default async function PendingProfilesPage() {
+export default function PendingProfilesPage() {
+  return <Suspense fallback={<p role="status">Carregando...</p>}>
+    <PendingProfilesContent />
+  </Suspense>;
+}
+
+async function PendingProfilesContent() {
   await requireAdmin();
   return (
     <section aria-labelledby="pending-title">
