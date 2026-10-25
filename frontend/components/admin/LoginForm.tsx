@@ -40,7 +40,7 @@ export default function LoginForm({ initialError = null }: { initialError?: stri
   }
 
   return (
-    <form onSubmit={signIn} className="admin-form" aria-busy={loading}>
+    <form method="post" onSubmit={signIn} className="admin-form" aria-busy={loading}>
       <fieldset disabled={loading} className="admin-fields">
         <label htmlFor="email">E-mail</label>
         <input id="email" name="email" type="email" autoComplete="username"

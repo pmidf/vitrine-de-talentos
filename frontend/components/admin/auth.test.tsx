@@ -27,7 +27,8 @@ async function fillLogin() {
 describe("login administrativo", () => {
   it("envia as credenciais e segue para os pendentes", async () => {
     mocks.signInWithPassword.mockResolvedValue({ error: null });
-    render(<LoginForm />);
+    const { container } = render(<LoginForm />);
+    expect(container.querySelector("form")?.method).toBe("post");
     const user = await fillLogin();
     await user.click(screen.getByRole("button", { name: "Entrar" }));
     expect(mocks.signInWithPassword).toHaveBeenCalledWith({

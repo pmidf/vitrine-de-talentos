@@ -14,7 +14,7 @@ Use Node.js 22.13 ou superior (clientes atuais do Supabase e ambiente de teste).
 
 Crie `frontend/.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` do ambiente de teste, conforme o README. Não versione esse arquivo. Sem configuração, o formulário permanece disponível e mostra uma mensagem de conexão ao enviar.
 
-Com o Docker e Supabase local disponíveis, execute `npx supabase start` e `npx supabase db reset` na raiz. O reset apaga os dados locais. O seed existente define `admin.vitoria@vitrine.com` / `senha123` (somente para testes locais). Verifique o funcionamento do seed de Auth com a SCRUM-110 antes de considerar o aceite integrado concluído.
+Com o Docker e Supabase local disponíveis, execute `npx supabase start` na raiz. Para recriar os dados, `npx supabase db reset` apaga o banco local. O seed existente define `admin.vitoria@vitrine.com` / `senha123` (somente para testes locais). No teste com Supabase CLI 2.122.0, os campos de tokens nulos inseridos pelo seed em `auth.users` causaram “Database error querying schema”. Foi necessário normalizar esses campos para strings vazias nos dois administradores fictícios, apenas no banco local. A correção permanente do seed deve ser alinhada com a SCRUM-110; resetar o banco recria esse problema.
 
 ## Validação
 
@@ -22,7 +22,9 @@ Na pasta `frontend`: `npm test`, `npm run lint`, `npx tsc --noEmit` e `npm run b
 
 Os testes automatizados simulam o SDK para verificar sucesso, mensagem genérica, falha de conexão, tentativas repetidas, bloqueio de envio duplicado, saída e proteção de acesso. Não substituem o teste com Supabase real.
 
-Validação da implementação: 41 testes aprovados, TypeScript e build de produção aprovados. Lint sem erros, com um aviso preexistente em `VoluntarioCard.tsx` sobre `<img>`. Tela conferida no navegador em 320 px e 1440 px, sem corte horizontal ou erros de JavaScript; acesso direto à administração sem configuração retorna ao login e a vitrine não contém link para `/login`. O aceite com administrador real permanece pendente da configuração do Supabase/SCRUM-110.
+Validação da implementação: 41 testes aprovados, TypeScript e build de produção aprovados. Lint sem erros, com um aviso preexistente em `VoluntarioCard.tsx` sobre `<img>`. Tela conferida no navegador em 320 px e 1440 px, sem corte horizontal ou erros de JavaScript; acesso direto à administração sem configuração retorna ao login e a vitrine não contém link para `/login`.
+
+Em 25/10/2026, com Supabase local e o ajuste de dados descrito acima, foram confirmados no navegador: login do administrador fictício, chegada a `/admin/pendentes`, mensagem genérica com senha errada, saída e redirecionamento ao login ao tentar reabrir a área protegida. O topo administrativo também foi verificado em 320 px sem corte horizontal. O formulário usa POST como proteção adicional caso seja enviado antes da hidratação do JavaScript. A configuração e autorização do ambiente compartilhado continuam dependendo da SCRUM-110.
 
 Para o aceite integrado:
 
