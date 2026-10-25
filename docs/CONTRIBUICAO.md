@@ -1,37 +1,56 @@
 # Guia de Contribuição
 
+Resumo do Guia de Versionamento da Vitrine de Talentos. Em caso de dúvida, vale o guia completo.
+
+## Antes do primeiro commit
+
+Ative o validador de mensagens de commit (uma vez por clone):
+
+```
+git config core.hooksPath .github/hooks
+```
+
 ## Branches
 
 | Branch | Finalidade | Push direto |
 |--------|-----------|-------------|
 | `main` | Código aprovado e estável | ❌ Bloqueado |
-| `develop` | Integração contínua do time | ❌ Bloqueado |
-| `feature/BKL-XXX-descricao` | Nova funcionalidade | ✅ Somente nela |
-| `hotfix/BKL-XXX-descricao` | Correção urgente em produção | ✅ Somente nela |
+| `develop` | Integração contínua do time (branch padrão) | ❌ Bloqueado |
+| `dev/frontend` | Espelho do trabalho do front-end | ✅ Somente a responsável |
+| `dev/backend-api` | Espelho das rotas e regras de negócio | ✅ Somente o responsável |
+| `dev/backend-banco` | Espelho das migrations, RLS e banco | ✅ Somente a responsável |
+| `feature/SCRUM-XXX-descricao` | Nova funcionalidade | ✅ Quem criou |
+| `hotfix/SCRUM-XXX-descricao` | Correção urgente em produção | ✅ Quem criou |
+
+- Todo trabalho novo começa em uma `feature/` criada a partir da `develop` atualizada.
+- As `dev/*` são atualizadas com a feature **só depois** do PR aprovado na `develop`.
+- Branches `feature/` e `hotfix/` são apagadas após o merge.
 
 **Exemplo de nome de branch:**
 ```
-feature/BKL-008-estrutura-inicial
-feature/BKL-009-formulario-cadastro
-hotfix/BKL-010-corrige-rls-perfil
+feature/SCRUM-107-card-voluntario
+hotfix/SCRUM-116-corrige-rls-perfil
 ```
 
 ## Commits
 
-Use sempre a chave do Jira no início da mensagem:
+Formato: `SCRUM-XXX: verbo no presente + descrição` (máximo de 72 caracteres na primeira linha).
 
 ```
-BKL-008: cria estrutura inicial de pastas e arquivos base
-BKL-009: adiciona formulário de cadastro com aceite LGPD
+SCRUM-105: adiciona validação dos campos do perfil
+SCRUM-107: corrige card sem foto
 ```
+
+Commits fora do padrão são bloqueados pelo validador.
 
 ## Pull Requests
 
 - Abra sempre para `develop`, nunca direto para `main`.
-- Mínimo de **1 aprovação** antes do merge.
-- PRs que alteram `/supabase/migrations` precisam da aprovação do **back-end de banco**.
-- Descreva o que foi feito e qual item do Jira está sendo entregue.
-- Não feche o PR sem o checklist de aceite da tarefa preenchido.
+- Mínimo de **2 aprovações** antes do merge.
+- Merge pelo botão **"Create a merge commit"** (único método permitido).
+- Preencha o template: o que foi feito, link do card no Jira e checklist.
+- PRs que alteram `/supabase/migrations` precisam da revisão do **back-end de banco**.
+- O merge de `develop` para `main` é feito pela gerente de projetos, após validar o critério de aceite no Jira.
 
 ## Segredos
 
@@ -39,10 +58,13 @@ BKL-009: adiciona formulário de cadastro com aceite LGPD
 - O `.env` está no `.gitignore`. Use apenas o `.env.example` no repositório.
 - A `SUPABASE_SERVICE_ROLE_KEY` é secreta e **nunca** vai para o front-end.
 
-## Responsáveis por área (CODEOWNERS)
+## Revisores automáticos (CODEOWNERS)
 
-| Área | Responsável |
-|------|------------|
-| `/supabase/migrations` | Back-end de banco |
-| `/frontend` | Front-end |
-| `/docs` | Gerente de projetos |
+Ao abrir um PR, o GitHub pede revisão automaticamente conforme as pastas alteradas:
+
+| Área | Revisores |
+|------|-----------|
+| Qualquer arquivo | Gerente de projetos |
+| `/supabase/migrations` | Back-end de banco + gerente |
+| `/backend` | Back-end 2 + gerente |
+| `/frontend` | Front-end + gerente |
