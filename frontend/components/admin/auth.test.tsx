@@ -7,12 +7,12 @@ import LogoutButton from "./LogoutButton";
 import { CONNECTION_ERROR, INVALID_CREDENTIALS } from "@/lib/auth/messages";
 
 const mocks = vi.hoisted(() => ({
-  signInWithPassword: vi.fn(), signOut: vi.fn(), replace: vi.fn(), refresh: vi.fn(),
+  signInWithPassword: vi.fn(), signOut: vi.fn(), replace: vi.fn(),
 }));
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({ auth: mocks }),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => mocks }));
+vi.mock("@/lib/auth/navigation", () => ({ navigateAfterAuth: mocks.replace }));
 
 afterEach(cleanup);
 beforeEach(() => vi.resetAllMocks());
@@ -35,7 +35,6 @@ describe("login administrativo", () => {
       email: "admin@example.test", password: "senha-de-teste",
     });
     expect(mocks.replace).toHaveBeenCalledWith("/admin/pendentes");
-    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
   it("impede novos envios enquanto aguarda a resposta", async () => {
@@ -85,7 +84,6 @@ describe("saída", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sair" }));
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(mocks.replace).toHaveBeenCalledWith("/login");
-    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
   it("mostra falha e permite repetir a saída", async () => {

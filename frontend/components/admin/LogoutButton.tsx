@@ -1,12 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { navigateAfterAuth } from "@/lib/auth/navigation";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/admin/admin.css";
 
 export default function LogoutButton() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const submitting = useRef(false);
@@ -19,8 +18,7 @@ export default function LogoutButton() {
     try {
       const { error: authError } = await createClient().auth.signOut({ scope: "local" });
       if (authError) throw authError;
-      router.replace("/login");
-      router.refresh();
+      navigateAfterAuth("/login");
       return;
     } catch {
       setError(true);

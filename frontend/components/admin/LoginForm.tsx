@@ -1,13 +1,12 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { navigateAfterAuth } from "@/lib/auth/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CONNECTION_ERROR, loginErrorMessage } from "@/lib/auth/messages";
 import "@/app/admin/admin.css";
 
 export default function LoginForm({ initialError = null }: { initialError?: string | null }) {
-  const router = useRouter();
   const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
   const submitting = useRef(false);
@@ -27,8 +26,7 @@ export default function LoginForm({ initialError = null }: { initialError?: stri
         password: String(form.get("senha")),
       });
       if (!authError) {
-        router.replace("/admin/pendentes");
-        router.refresh();
+        navigateAfterAuth("/admin/pendentes");
         return;
       }
       setError(loginErrorMessage(authError));
