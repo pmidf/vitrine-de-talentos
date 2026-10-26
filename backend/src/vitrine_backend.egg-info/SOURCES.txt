@@ -1,0 +1,10 @@
+pyproject.toml
+src/perfil/__init__.py
+src/perfil/repository.py
+src/perfil/schemas.py
+src/vitrine_backend.egg-info/PKG-INFO
+src/vitrine_backend.egg-info/SOURCES.txt
+src/vitrine_backend.egg-info/dependency_links.txt
+src/vitrine_backend.egg-info/requires.txt
+src/vitrine_backend.egg-info/top_level.txt
+tests/test_perfil.py
