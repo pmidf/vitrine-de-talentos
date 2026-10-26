@@ -17,23 +17,11 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 def criar_perfil(input_data: PerfilCreate) -> PerfilCriadoResponse:
     """
     Salva um novo perfil (Caso 1 e 2).
-    Força o status inicial e mapeia os nomes Pydantic para os nomes provisórios do banco.
     """
     # Mapeamento: Dicionário de dados -> Colunas atuais do banco (migration 003)
-    db_row = {
-        "nome": input_data.nome_perfil,
-        "curso": input_data.curso_perfil,
-        "cargo_student_club": input_data.cargo_perfil,
-        "linkedin_url": input_data.linkedin_perfil,
-        "foto_path": input_data.foto_perfil,
-        "email": input_data.email,
-        "versao_termo": VERSAO_TERMO,
-        "status": "aguardando_validacao" # Será ajustado para 'pendente' pós-migration da Pietra
-    }
-
+    db_row = input_data.model_dump()
     try:
-        # A tabela temporariamente chama-se 'perfil' (futura 'tb_perfil')
-        response = supabase.table("perfil").insert(db_row).execute()
+        response = supabase.table("tb_perfil").insert(db_row).execute()
         
         # Pega o primeiro (e único) registro inserido
         data = response.data[0]
@@ -44,10 +32,12 @@ def criar_perfil(input_data: PerfilCreate) -> PerfilCriadoResponse:
             criado_em=data["criado_em"]
         )
     except Exception as e:
-        # Logamos genericamente para evitar vazar PII (Nome, E-mail) no console
-        logger.error("[criar_perfil] Erro ao salvar perfil no banco.", exc_info=False)
-        raise ValueError("Não foi possível salvar o perfil. Tente novamente.")
-
+# LOG DETALHADO: Pega o erro real do Supabase (ex: constraint violation), 
+        # mas NUNCA concatena o 'db_row' ou 'input_data' aqui.
+        logger.error(f"[criar_perfil] Falha na inserção do banco. Detalhe técnico: {str(e)}")
+        
+        # RETORNO SEGURO: Genérico e amigável para o front-end exibir.
+        raise ValueError("Ocorreu um problema ao registrar seu perfil. Por favor, tente novamente mais tarde.")
 def buscar_perfis_publicos() -> list[PerfilPublico]:
     """
     Busca os perfis para a galeria (Caso 8).
@@ -60,17 +50,7 @@ def buscar_perfis_publicos() -> list[PerfilPublico]:
             "nome, curso, cargo_student_club, linkedin_url, foto_path"
         ).eq("status", "aprovado").execute()
         
-        perfis = []
-        for row in response.data:
-            perfis.append(
-                PerfilPublico(
-                    nome_perfil=row.get("nome"),
-                    curso_perfil=row.get("curso"),
-                    cargo_perfil=row.get("cargo_student_club"),
-                    linkedin_perfil=row.get("linkedin_url"),
-                    foto_perfil=row.get("foto_path")
-                )
-            )
+perfis = [PerfilPublico(**row) for row in response.data]
         return perfis
     except Exception as e:
         logger.error("[buscar_perfis_publicos] Erro ao buscar dados da galeria.", exc_info=False)
