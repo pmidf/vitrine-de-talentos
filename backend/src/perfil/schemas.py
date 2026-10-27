@@ -1,11 +1,9 @@
-import re
+# backend/src/perfil/schemas.py
 from typing import Optional
 from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class PerfilCreate(BaseModel):
-    # extra="forbid" atende ao Caso 3: recusa qualquer campo fora do escopo (ex: CPF)
-    # str_strip_whitespace=True remove espaços em branco nas pontas
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     nome_perfil: str = Field(..., min_length=2, max_length=150)
@@ -13,29 +11,18 @@ class PerfilCreate(BaseModel):
     cargo_perfil: str = Field(..., min_length=2, max_length=100)
     linkedin_perfil: Optional[str] = Field(None, max_length=255)
     foto_perfil: Optional[str] = None
-    email: str = Field(..., max_length=255) # Requisito da migration 003 da tabela public.perfil
-
-    @field_validator("email")
-    @classmethod
-    def validar_email(cls, v: str) -> str:
-        if "@" not in v:
-            raise ValueError("O e-mail fornecido é inválido.")
-        return v
 
     @field_validator("linkedin_perfil")
     @classmethod
     def validar_linkedin(cls, v: Optional[str]) -> Optional[str]:
         if not v:
             return v
-        
         parsed = urlparse(v)
         if parsed.scheme != "https":
             raise ValueError("A URL do LinkedIn deve usar HTTPS.")
-        
         hostname = parsed.hostname or ""
         if not (hostname == "linkedin.com" or hostname.endswith(".linkedin.com")):
             raise ValueError("A URL deve ser do domínio linkedin.com.")
-        
         return v
 
 class PerfilPublico(BaseModel):
