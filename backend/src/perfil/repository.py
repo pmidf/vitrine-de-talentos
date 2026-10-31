@@ -26,7 +26,7 @@ def criar_perfil(input_data: PerfilCreate) -> PerfilCriadoResponse:
             criado_em=data["data_criacao_perfil"]
         )
     except Exception as e:
-        logger.error(f"[criar_perfil] Falha na inserção do banco. Detalhe técnico: {str(e)}")
+        logger.error(f"[criar_perfil] Falha na inserção. Tipo: {type(e).__name__}")
         raise ValueError("Ocorreu um problema ao registrar seu perfil. Por favor, tente novamente mais tarde.")
 
 def buscar_perfis_publicos() -> list[PerfilPublico]:
@@ -39,5 +39,5 @@ def buscar_perfis_publicos() -> list[PerfilPublico]:
         perfis = [PerfilPublico(**row) for row in response.data]
         return perfis
     except Exception as e:
-        logger.error(f"[buscar_perfis_publicos] Falha na busca. Detalhe técnico: {str(e)}")
+        logger.error(f"[buscar_perfis_publicos] Falha na busca. Tipo: {type(e).__name__}")
         raise ValueError("Não foi possível carregar os voluntários.")
