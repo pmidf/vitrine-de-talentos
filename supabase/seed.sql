@@ -12,7 +12,8 @@ CASCADE;
 --------------------------------------------------------------------------------
 
 -- Admin 1 (Ativo)
-INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change, email_change_token_new)
 VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     '00000000-0000-0000-0000-000000000000',
@@ -21,7 +22,8 @@ VALUES (
     crypt('senha123', gen_salt('bf')),
     now(),
     '{"full_name": "Vitória Souza", "username": "vitoria_admin"}'::jsonb,
-    now(), now()
+    now(), now(),
+    '', '', '', ''
 );
 
 --INSERT INTO public.tb_admin (id_admin, nome_admin, usuario_admin, status_admin)
@@ -29,7 +31,8 @@ VALUES (
 
                                                     
 -- Admin 2 (Ativo)
-INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change, email_change_token_new)
 VALUES (
     'b1ffcd88-8d1a-3de7-aa5c-5aa8ac279b22',
     '00000000-0000-0000-0000-000000000000',
@@ -38,7 +41,8 @@ VALUES (
     crypt('senha123', gen_salt('bf')),
     now(),
     '{"full_name": "Carlos Lima", "username": "carlos_admin"}'::jsonb,
-    now(), now()
+    now(), now(),
+    '', '', '', ''
 );
 
 --INSERT INTO public.tb_admin (id_admin, nome_admin, usuario_admin, status_admin)

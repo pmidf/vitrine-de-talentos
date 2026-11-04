@@ -1,0 +1,12 @@
+backend/.venv/
+backend/src/vitrine_backend.egg-info/
+
+# Variáveis de ambiente (nunca commitar valores reais)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
