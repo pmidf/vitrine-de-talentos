@@ -15,12 +15,12 @@ DECLARE
     v_id_perfil UUID;
 BEGIN
     -- Validação 1: O aceite geral da LGPD é obrigatório
-    IF NOT p_aceite_lgpd THEN
+    IF p_aceite_lgpd IS NOT TRUE THEN
         RAISE EXCEPTION 'O consentimento dos termos da LGPD é obrigatório.';
     END IF;
 
     -- Validação 2: Se tem foto, o aceite de imagem é obrigatório
-    IF p_foto_perfil IS NOT NULL AND NOT p_aceite_imagem_lgpd THEN
+    IF p_foto_perfil IS NOT NULL AND p_aceite_imagem_lgpd IS NOT TRUE THEN
         RAISE EXCEPTION 'O consentimento de uso de imagem é obrigatório para enviar uma foto.';
     END IF;
 
