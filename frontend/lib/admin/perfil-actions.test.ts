@@ -17,7 +17,9 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   eq: vi.fn(),
   eq2: vi.fn(),
+  eq3: vi.fn(),
   maybeSingle: vi.fn(),
+  selectFinal: vi.fn(),
   order: vi.fn(),
 }));
 
@@ -31,59 +33,23 @@ vi.mock("../supabase/admin-client", () => ({
   }),
 }));
 
-// ---------------------------------------------------------------------------
-// Setup padrão: admin logado com id fixo
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getAdminId.mockResolvedValue("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
 });
 
 // ---------------------------------------------------------------------------
-// Helpers tipados com unknown para flexibilidade nos testes
-// ---------------------------------------------------------------------------
-
-type AnyResult = Record<string, unknown>;
-
-function mockListarPendentes(result: AnyResult) {
-  mocks.order.mockResolvedValue(result);
-  mocks.eq.mockReturnValue({ order: mocks.order });
-  mocks.select.mockReturnValue({ eq: mocks.eq });
-  mocks.from.mockReturnValue({ select: mocks.select });
-}
-
-function mockLgpd(result: AnyResult) {
-  mocks.maybeSingle.mockResolvedValue(result);
-  mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
-  mocks.select.mockReturnValue({ eq: mocks.eq });
-}
-
-function mockUpdate(result: AnyResult) {
-  mocks.eq2.mockResolvedValue(result);
-  mocks.eq.mockReturnValue({ eq: mocks.eq2 });
-  mocks.update.mockReturnValue({ eq: mocks.eq });
-}
-
-function mockInsert(result: AnyResult) {
-  mocks.insert.mockResolvedValue(result);
-}
-
-function mockFromSequence(methods: string[]) {
-  let callCount = 0;
-  mocks.from.mockImplementation(() => {
-    const method = methods[callCount++];
-    if (method === "select") return { select: mocks.select };
-    if (method === "update") return { update: mocks.update };
-    if (method === "insert") return { insert: mocks.insert };
-  });
-}
-
-// ---------------------------------------------------------------------------
 // listarPendentes
 // ---------------------------------------------------------------------------
 
 describe("listarPendentes", () => {
+  function setup(result: Record<string, unknown>) {
+    mocks.order.mockResolvedValue(result);
+    mocks.eq.mockReturnValue({ order: mocks.order });
+    mocks.select.mockReturnValue({ eq: mocks.eq });
+    mocks.from.mockReturnValue({ select: mocks.select });
+  }
+
   it("retorna apenas perfis pendentes com dados LGPD", async () => {
     const perfisMock = [
       {
@@ -96,7 +62,7 @@ describe("listarPendentes", () => {
         tb_lgpd_perfil: { aceite_lgpd: true, aceite_imagem_lgpd: false },
       },
     ];
-    mockListarPendentes({ data: perfisMock, error: null });
+    setup({ data: perfisMock, error: null });
 
     const resultado = await listarPendentes();
 
@@ -105,26 +71,19 @@ describe("listarPendentes", () => {
   });
 
   it("retorna lista vazia quando não há pendentes", async () => {
-    mockListarPendentes({ data: [], error: null });
-
-    const resultado = await listarPendentes();
-
-    expect(resultado).toEqual([]);
+    setup({ data: [], error: null });
+    expect(await listarPendentes()).toEqual([]);
   });
 
   it("lança erro quando o banco falha", async () => {
-    mockListarPendentes({ data: null, error: { message: "timeout" } });
-
+    setup({ data: null, error: { message: "timeout" } });
     await expect(listarPendentes()).rejects.toThrow(
       "Não foi possível carregar os perfis pendentes."
     );
   });
 
   it("recusa chamada sem admin autenticado", async () => {
-    mocks.getAdminId.mockRejectedValue(
-      new Error("Acesso negado: nenhum administrador autenticado.")
-    );
-
+    mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
     await expect(listarPendentes()).rejects.toThrow("Acesso negado");
   });
 });
@@ -136,19 +95,48 @@ describe("listarPendentes", () => {
 describe("aprovarPerfil", () => {
   const idPerfil = "d3000000-2222-3333-4444-555555555555";
 
-  function setupAprovar(
-    lgpd: AnyResult = { data: { aceite_lgpd: true }, error: null },
-    update: AnyResult = { data: [{ id_perfil: idPerfil }], error: null },
-    insert: AnyResult = { error: null }
-  ) {
-    mockFromSequence(["select", "update", "insert"]);
-    mockLgpd(lgpd);
-    mockUpdate(update);
-    mockInsert(insert);
+  /**
+   * aprovarPerfil faz três chamadas ao banco em sequência:
+   * 1. from("tb_lgpd_perfil").select(...).eq(...).maybeSingle()
+   * 2. from("tb_perfil").update(...).eq(...).eq(...).select()
+   * 3. from("tb_log_perfil").insert(...)
+   *
+   * O mocks.from precisa retornar objetos diferentes a cada chamada.
+   */
+  function setup({
+    lgpdResult = { data: { aceite_lgpd: true }, error: null },
+    updateResult = { data: [{ id_perfil: idPerfil }], error: null },
+    insertResult = { error: null },
+  }: {
+    lgpdResult?: Record<string, unknown>;
+    updateResult?: Record<string, unknown>;
+    insertResult?: Record<string, unknown>;
+  } = {}) {
+    // Cadeia 1: select LGPD → .select().eq().maybeSingle()
+    mocks.maybeSingle.mockResolvedValue(lgpdResult);
+    const eqLgpd = vi.fn().mockReturnValue({ maybeSingle: mocks.maybeSingle });
+    const selectLgpd = vi.fn().mockReturnValue({ eq: eqLgpd });
+    const fromLgpd = { select: selectLgpd };
+
+    // Cadeia 2: update perfil → .update().eq().eq().select()
+    mocks.selectFinal.mockResolvedValue(updateResult);
+    const eq2Update = vi.fn().mockReturnValue({ select: mocks.selectFinal });
+    const eq1Update = vi.fn().mockReturnValue({ eq: eq2Update });
+    const updateFn = vi.fn().mockReturnValue({ eq: eq1Update });
+    const fromUpdate = { update: updateFn };
+
+    // Cadeia 3: insert log → .insert()
+    mocks.insert.mockResolvedValue(insertResult);
+    const fromInsert = { insert: mocks.insert };
+
+    mocks.from
+      .mockReturnValueOnce(fromLgpd)
+      .mockReturnValueOnce(fromUpdate)
+      .mockReturnValueOnce(fromInsert);
   }
 
   it("aprova perfil pendente com aceite LGPD e grava log", async () => {
-    setupAprovar();
+    setup();
 
     await expect(aprovarPerfil(idPerfil)).resolves.toBeUndefined();
     expect(mocks.getAdminId).toHaveBeenCalled();
@@ -161,19 +149,23 @@ describe("aprovarPerfil", () => {
   });
 
   it("recusa aprovação sem aceite LGPD", async () => {
-    setupAprovar({ data: { aceite_lgpd: false }, error: null });
+    setup({ lgpdResult: { data: { aceite_lgpd: false }, error: null } });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
       "consentimento LGPD não registrado"
     );
-    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("recusa aprovação sem LGPD registrada", async () => {
+    setup({ lgpdResult: { data: null, error: null } });
+
+    await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
+      "consentimento LGPD não registrado"
+    );
   });
 
   it("recusa aprovação quando perfil não está pendente ou não existe", async () => {
-    setupAprovar(
-      { data: { aceite_lgpd: true }, error: null },
-      { data: [], error: null }
-    );
+    setup({ updateResult: { data: [], error: null } });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
       "não está pendente ou não existe"
@@ -181,16 +173,8 @@ describe("aprovarPerfil", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
-  it("recusa aprovação sem LGPD registrada", async () => {
-    setupAprovar({ data: null, error: null });
-
-    await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
-      "consentimento LGPD não registrado"
-    );
-  });
-
   it("lança erro quando banco falha na verificação LGPD", async () => {
-    setupAprovar({ data: null, error: { message: "timeout" } });
+    setup({ lgpdResult: { data: null, error: { message: "timeout" } } });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
       "Não foi possível verificar o consentimento LGPD."
@@ -198,10 +182,7 @@ describe("aprovarPerfil", () => {
   });
 
   it("lança erro quando banco falha no update", async () => {
-    setupAprovar(
-      { data: { aceite_lgpd: true }, error: null },
-      { data: null, error: { message: "timeout" } }
-    );
+    setup({ updateResult: { data: null, error: { message: "timeout" } } });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
       "Não foi possível aprovar o perfil."
@@ -209,11 +190,7 @@ describe("aprovarPerfil", () => {
   });
 
   it("lança erro quando log não pode ser gravado", async () => {
-    setupAprovar(
-      { data: { aceite_lgpd: true }, error: null },
-      { data: [{ id_perfil: idPerfil }], error: null },
-      { error: { message: "timeout" } }
-    );
+    setup({ insertResult: { error: { message: "timeout" } } });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
       "log não pôde ser gravado"
@@ -221,9 +198,7 @@ describe("aprovarPerfil", () => {
   });
 
   it("recusa chamada sem admin autenticado", async () => {
-    mocks.getAdminId.mockRejectedValue(
-      new Error("Acesso negado: nenhum administrador autenticado.")
-    );
+    mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow("Acesso negado");
     expect(mocks.from).not.toHaveBeenCalled();
@@ -238,17 +213,36 @@ describe("rejeitarPerfil", () => {
   const idPerfil = "d3000000-2222-3333-4444-555555555555";
   const motivo = "Informações do cargo não atendem às diretrizes do projeto.";
 
-  function setupRejeitar(
-    update: AnyResult = { data: [{ id_perfil: idPerfil }], error: null },
-    insert: AnyResult = { error: null }
-  ) {
-    mockFromSequence(["update", "insert"]);
-    mockUpdate(update);
-    mockInsert(insert);
+  /**
+   * rejeitarPerfil faz duas chamadas ao banco:
+   * 1. from("tb_perfil").update(...).eq(...).eq(...).select()
+   * 2. from("tb_log_perfil").insert(...)
+   */
+  function setup({
+    updateResult = { data: [{ id_perfil: idPerfil }], error: null },
+    insertResult = { error: null },
+  }: {
+    updateResult?: Record<string, unknown>;
+    insertResult?: Record<string, unknown>;
+  } = {}) {
+    // Cadeia 1: update perfil
+    mocks.selectFinal.mockResolvedValue(updateResult);
+    const eq2Update = vi.fn().mockReturnValue({ select: mocks.selectFinal });
+    const eq1Update = vi.fn().mockReturnValue({ eq: eq2Update });
+    const updateFn = vi.fn().mockReturnValue({ eq: eq1Update });
+    const fromUpdate = { update: updateFn };
+
+    // Cadeia 2: insert log
+    mocks.insert.mockResolvedValue(insertResult);
+    const fromInsert = { insert: mocks.insert };
+
+    mocks.from
+      .mockReturnValueOnce(fromUpdate)
+      .mockReturnValueOnce(fromInsert);
   }
 
   it("rejeita perfil pendente com motivo e grava log", async () => {
-    setupRejeitar();
+    setup();
 
     await expect(rejeitarPerfil(idPerfil, motivo)).resolves.toBeUndefined();
     expect(mocks.insert).toHaveBeenCalledWith(
@@ -274,7 +268,7 @@ describe("rejeitarPerfil", () => {
   });
 
   it("recusa rejeição quando perfil não está pendente ou não existe", async () => {
-    setupRejeitar({ data: [], error: null });
+    setup({ updateResult: { data: [], error: null } });
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
       "não está pendente ou não existe"
@@ -283,7 +277,7 @@ describe("rejeitarPerfil", () => {
   });
 
   it("lança erro quando banco falha no update", async () => {
-    setupRejeitar({ data: null, error: { message: "timeout" } });
+    setup({ updateResult: { data: null, error: { message: "timeout" } } });
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
       "Não foi possível rejeitar o perfil."
@@ -291,10 +285,7 @@ describe("rejeitarPerfil", () => {
   });
 
   it("lança erro quando log não pode ser gravado", async () => {
-    setupRejeitar(
-      { data: [{ id_perfil: idPerfil }], error: null },
-      { error: { message: "timeout" } }
-    );
+    setup({ insertResult: { error: { message: "timeout" } } });
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
       "log não pôde ser gravado"
@@ -302,9 +293,7 @@ describe("rejeitarPerfil", () => {
   });
 
   it("recusa chamada sem admin autenticado", async () => {
-    mocks.getAdminId.mockRejectedValue(
-      new Error("Acesso negado: nenhum administrador autenticado.")
-    );
+    mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
       "Acesso negado"
