@@ -109,12 +109,13 @@ export async function aprovarPerfil(idPerfil: string): Promise<void> {
     );
   }
 
-  // 3. Grava o log da ação
-  const { error: logError } = await supabase.from("tb_log_perfil").insert({
-    fk_id_perfil: idPerfil,
-    fk_id_admin: idAdmin,
-    data_atualizacao_perfil: new Date().toISOString(),
-  });
+ // 3. Grava o log da ação
+const { error: logError } = await supabase.from("tb_log_perfil").insert({
+  fk_id_perfil: idPerfil,
+  fk_id_admin: idAdmin,
+  data_atualizacao_perfil: new Date().toISOString(),
+  motivo_rejeicao_perfil: "Não se aplica: perfil aprovado.",
+});
 
   if (logError) {
     // O perfil já foi aprovado — o log não pode reverter isso.
