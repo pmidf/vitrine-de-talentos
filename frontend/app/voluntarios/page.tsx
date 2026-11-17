@@ -1,10 +1,9 @@
 import HeroVoluntarios from "@/components/HeroVoluntarios";
 import VoluntarioCard from "@/components/VoluntarioCard";
-import { buscarVoluntarios } from "@/lib/mock-voluntarios";
+import { buscarPerfisPublicos } from "@/lib/perfil/perfil-actions";
 
 export default async function VoluntariosPage() {
-  const voluntarios = await buscarVoluntarios();
-
+  const voluntarios = await buscarPerfisPublicos();
   return (
     <main className="min-h-screen bg-fundo px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -28,12 +27,8 @@ export default async function VoluntariosPage() {
             className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             aria-label="Galeria de voluntários"
           >
-            {voluntarios.map((voluntario) => (
-              <VoluntarioCard
-                key={voluntario.id_perfil}
-                voluntario={voluntario}
-                perfilFicticio
-              />
+            {voluntarios.map((voluntario, indice) => (
+              <VoluntarioCard key={indice} voluntario={voluntario} />
             ))}
           </section>
         )}
