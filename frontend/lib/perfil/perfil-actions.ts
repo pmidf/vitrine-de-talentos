@@ -1,8 +1,8 @@
 "use server";
 
 import { createClient } from "../supabase/server";
-import { createAdminClient } from "../supabase/admin-client";
 import { perfilSchema, type PerfilInput } from "../validations/perfil";
+import type { Voluntario } from "@/types/voluntarios";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -12,15 +12,6 @@ export type PerfilCriado = {
   id: string;
   status: string;
   criado_em: string;
-};
-
-export type PerfilPublico = {
-  id_perfil: string;
-  nome_perfil: string;
-  curso_perfil: string;
-  cargo_perfil: string;
-  linkedin_perfil: string | null;
-  foto_perfil: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -77,17 +68,19 @@ export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
 // ---------------------------------------------------------------------------
 
 /**
- * Retorna apenas os perfis com status 'aprovado' para a galeria pública.
- * Usa o cliente admin para contornar a RLS de leitura — a filtragem
- * por status é feita aqui na query, não delegada ao banco.
+ * Retorna só os perfis aprovados, com os 5 campos públicos, para a galeria.
+ * Usa o cliente comum: o RLS do banco já entrega só os aprovados ao visitante.
+ * O filtro de status abaixo é uma segunda camada de proteção.
  */
-export async function buscarPerfisPublicos(): Promise<PerfilPublico[]> {
-  const supabase = createAdminClient();
+
+
+export async function buscarPerfisPublicos(): Promise<Voluntario[]> {
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("tb_perfil")
     .select(
-      "id_perfil, nome_perfil, curso_perfil, cargo_perfil, linkedin_perfil, foto_perfil"
+      "nome_perfil, curso_perfil, cargo_perfil, linkedin_perfil, foto_perfil"
     )
     .eq("status_perfil", "aprovado")
     .order("data_criacao_perfil", { ascending: false });
@@ -96,5 +89,5 @@ export async function buscarPerfisPublicos(): Promise<PerfilPublico[]> {
     throw new Error("Não foi possível carregar os voluntários.");
   }
 
-  return (data ?? []) as PerfilPublico[];
+  return data ?? [];
 }
