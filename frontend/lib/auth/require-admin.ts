@@ -13,10 +13,42 @@ export const requireAdmin = cache(async () => {
   if (destination) redirect(destination);
 });
 
+/**
+ * Retorna o id do administrador autenticado na sessão atual.
+ * Lança um erro se não houver admin logado — use apenas em server actions,
+ * nunca em Server Components (prefira requireAdmin para esses casos).
+ */
+export async function getAdminId(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("Acesso negado: nenhum administrador autenticado.");
+  }
+
+  const { data: admin, error: adminError } = await supabase
+    .from("tb_admin")
+    .select("id_admin")
+    .eq("id_admin", user.id)
+    .maybeSingle();
+
+  if (adminError || !admin) {
+    throw new Error("Acesso negado: usuário não é administrador.");
+  }
+
+  return admin.id_admin as string;
+}
+
 async function checkAdmin(): Promise<string | null> {
   try {
     const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
     if (error) {
       return loginErrorMessage(error) === CONNECTION_ERROR
         ? "/login?erro=conexao"
