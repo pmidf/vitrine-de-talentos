@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
   eq: vi.fn(),
   order: vi.fn(),
+  adminFrom: vi.fn(),
+
 }));
 
 vi.mock("../supabase/server", () => ({
@@ -20,8 +22,9 @@ vi.mock("../supabase/server", () => ({
 }));
 
 vi.mock("../supabase/admin-client", () => ({
-  createAdminClient: () => ({ from: mocks.from }),
+  createAdminClient: () => ({ from: mocks.adminFrom }), // separado: para provar que NÃO é usado
 }));
+
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -147,10 +150,9 @@ describe("buscarPerfisPublicos", () => {
     mocks.from.mockReturnValue({ select: mocks.selectPublico });
   }
 
-  it("retorna apenas perfis aprovados com 6 campos", async () => {
+  it("pede ao banco só os 5 campos públicos dos perfis aprovados", async () => {
     const perfisMock = [
       {
-        id_perfil: "uuid-001",
         nome_perfil: "Ana Silva",
         curso_perfil: "Ciência da Computação",
         cargo_perfil: "Desenvolvedora",
@@ -163,6 +165,9 @@ describe("buscarPerfisPublicos", () => {
     const resultado = await buscarPerfisPublicos();
 
     expect(resultado).toEqual(perfisMock);
+    expect(mocks.selectPublico).toHaveBeenCalledWith(
+      "nome_perfil, curso_perfil, cargo_perfil, linkedin_perfil, foto_perfil"
+    );
     expect(mocks.eq).toHaveBeenCalledWith("status_perfil", "aprovado");
   });
 
@@ -174,24 +179,23 @@ describe("buscarPerfisPublicos", () => {
     expect(resultado).toEqual([]);
   });
 
-  it("não expõe status_perfil na resposta", async () => {
-    setupBusca({
-      data: [
-        {
-          id_perfil: "uuid-001",
-          nome_perfil: "Ana Silva",
-          curso_perfil: "Ciência da Computação",
-          cargo_perfil: "Desenvolvedora",
-          linkedin_perfil: null,
-          foto_perfil: null,
-        },
-      ],
-      error: null,
-    });
+  it("nunca pede id_perfil nem status_perfil ao banco", async () => {
+    setupBusca({ data: [], error: null });
 
-    const resultado = await buscarPerfisPublicos();
+    await buscarPerfisPublicos();
 
-    expect(resultado[0]).not.toHaveProperty("status_perfil");
+    const camposPedidos = mocks.selectPublico.mock.calls[0][0] as string;
+    expect(camposPedidos).not.toContain("id_perfil");
+    expect(camposPedidos).not.toContain("status_perfil");
+  });
+
+  it("usa o cliente comum (com RLS), nunca o cliente admin", async () => {
+    setupBusca({ data: [], error: null });
+
+    await buscarPerfisPublicos();
+
+    expect(mocks.from).toHaveBeenCalledWith("tb_perfil");
+    expect(mocks.adminFrom).not.toHaveBeenCalled();
   });
 
   it("lança erro quando banco falha", async () => {
