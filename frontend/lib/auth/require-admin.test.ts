@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { requireAdmin } from "./require-admin";
+import { getAdminId, requireAdmin } from "./require-admin";
+
 
 const mocks = vi.hoisted(() => ({ connection: vi.fn(), getUser: vi.fn(), maybeSingle: vi.fn(), redirect: vi.fn(), eq: vi.fn() }));
 vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
@@ -56,5 +57,29 @@ describe("acesso administrativo no servidor", () => {
     mocks.getUser.mockRejectedValue(new TypeError("Failed to fetch"));
     await requireAdmin();
     expect(mocks.redirect).toHaveBeenCalledWith("/login?erro=conexao");
+  });
+});
+
+
+describe("getAdminId", () => {
+  it("retorna o id do administrador ativo", async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: { id_admin: "admin-id", status_admin: true },
+      error: null,
+    });
+    await expect(getAdminId()).resolves.toBe("admin-id");
+  });
+
+  it.each([null, { id_admin: "admin-id", status_admin: false }])(
+    "recusa administrador ausente ou desativado: %s",
+    async (data) => {
+      mocks.maybeSingle.mockResolvedValue({ data, error: null });
+      await expect(getAdminId()).rejects.toThrow("Acesso negado");
+    },
+  );
+
+  it("recusa quem não está logado", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    await expect(getAdminId()).rejects.toThrow("Acesso negado");
   });
 });

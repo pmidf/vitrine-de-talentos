@@ -54,7 +54,9 @@ describe("moderação de perfis pendentes", () => {
 
   it("exige motivo, mantém o cartão em caso de falha e permite tentar novamente", async () => {
     const usuario = userEvent.setup();
-    vi.mocked(rejeitarPerfil).mockRejectedValueOnce(new Error("Falha"));
+      vi.mocked(rejeitarPerfil).mockRejectedValueOnce(
+      new Error("Não foi possível rejeitar o perfil."),
+    );
     render(<ListaPendentes perfisIniciais={[perfil]} />);
 
     await usuario.click(screen.getByRole("button", { name: /rejeitar perfil/i }));
@@ -75,6 +77,22 @@ describe("moderação de perfis pendentes", () => {
     expect(rejeitarPerfil).toHaveBeenLastCalledWith(perfil.id_perfil, "Cargo não confere");
     expect(screen.getByText(/perfil de Diego Ferreira rejeitado/i)).toBeTruthy();
     expect(screen.queryByRole("heading", { name: perfil.nome_perfil })).toBeNull();
+  });
+
+  it("mostra a mensagem clara do banco quando a aprovação é recusada", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(aprovarPerfil).mockRejectedValueOnce(
+      new Error("Este perfil não pode ser aprovado: falta o aceite da LGPD."),
+    );
+    render(<ListaPendentes perfisIniciais={[perfil]} />);
+
+    await usuario.click(screen.getByRole("button", { name: /aprovar perfil/i }));
+    await usuario.click(screen.getByRole("button", { name: "Sim, aprovar" }));
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Este perfil não pode ser aprovado: falta o aceite da LGPD.",
+    );
+    expect(screen.getByRole("heading", { name: perfil.nome_perfil })).toBeTruthy();
   });
 
   it("mostra a mensagem de lista vazia ao abrir a página sem pendências", () => {
