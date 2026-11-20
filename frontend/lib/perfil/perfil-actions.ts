@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "../supabase/server";
+import { createAdminClient } from "../supabase/admin-client";
 import { perfilSchema, type PerfilInput } from "../validations/perfil";
 import type { Voluntario } from "@/types/voluntarios";
 
@@ -89,5 +90,30 @@ export async function buscarPerfisPublicos(): Promise<Voluntario[]> {
     throw new Error("Não foi possível carregar os voluntários.");
   }
 
-  return data ?? [];
+  const perfis = data ?? [];
+  const caminhos = perfis
+    .map((perfil) => perfil.foto_perfil)
+    .filter((foto): foto is string => /^perfis\/[0-9a-f-]{36}\.jpg$/.test(foto ?? ""));
+
+  if (caminhos.length === 0) return perfis;
+
+  // Só assina caminhos retornados pela consulta de perfis aprovados.
+  const urls = new Map<string, string | null>(caminhos.map((caminho) => [caminho, null]));
+  const bucket = process.env.STORAGE_bucketFotos;
+  if (bucket) {
+    try {
+      const { data: fotos } = await createAdminClient().storage.from(bucket)
+        .createSignedUrls([...urls.keys()], 3600);
+      for (const foto of fotos ?? []) {
+        if (foto.path && foto.signedUrl) urls.set(foto.path, foto.signedUrl);
+      }
+    } catch {
+      // A galeria continua disponível quando o Storage está indisponível.
+    }
+  }
+
+  return perfis.map((perfil) => {
+    const url = urls.get(perfil.foto_perfil ?? "");
+    return url === undefined ? perfil : { ...perfil, foto_perfil: url };
+  });
 }

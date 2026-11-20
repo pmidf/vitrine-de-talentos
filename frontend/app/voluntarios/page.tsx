@@ -1,3 +1,4 @@
+import Link from "next/link";
 import HeroVoluntarios from "@/components/HeroVoluntarios";
 import VoluntarioCard from "@/components/VoluntarioCard";
 import { buscarPerfisPublicos } from "@/lib/perfil/perfil-actions";
@@ -8,6 +9,14 @@ export default async function VoluntariosPage() {
     <main className="min-h-screen bg-fundo px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <HeroVoluntarios />
+        <div className="text-center">
+          <Link
+            href="/cadastro"
+            className="inline-flex rounded-lg bg-site-roxo px-5 py-3 font-semibold text-white hover:bg-pmi-roxo"
+          >
+            Envie seu perfil
+          </Link>
+        </div>
 
         {voluntarios.length === 0 ? (
           <section
