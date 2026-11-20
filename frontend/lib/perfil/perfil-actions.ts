@@ -10,8 +10,6 @@ import type { Voluntario } from "@/types/voluntarios";
 
 export type PerfilCriado = {
   id: string;
-  status: string;
-  criado_em: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -19,8 +17,9 @@ export type PerfilCriado = {
 // ---------------------------------------------------------------------------
 
 /**
- * Recebe os dados do formulário, valida e salva no banco como 'pendente'.
- * Usa o cliente anon — a RLS permite inserção pública.
+ * Recebe os dados do formulário, valida e envia ao banco pela função enviar_perfil.
+ * A função grava o perfil como 'pendente' e o consentimento LGPD de uma vez só.
+ * O visitante (anon) não tem permissão de gravar direto na tb_perfil.
  */
 export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
   // 1. Valida os dados com o mesmo schema do formulário
@@ -35,32 +34,28 @@ export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
 
   const dados = resultado.data;
 
-  // 2. Salva no banco
+  // 2. Envia ao banco só os campos previstos, um a um
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("tb_perfil")
-    .insert({
-      nome_perfil: dados.nome_perfil,
-      curso_perfil: dados.curso_perfil,
-      cargo_perfil: dados.cargo_perfil,
-      linkedin_perfil: dados.linkedin_perfil || null,
-      foto_perfil: dados.foto_perfil || null,
-    })
-    .select("id_perfil, status_perfil, data_criacao_perfil")
-    .single();
+  const { data: idPerfil, error } = await supabase.rpc("enviar_perfil", {
+    p_nome_perfil: dados.nome_perfil,
+    p_curso_perfil: dados.curso_perfil,
+    p_cargo_perfil: dados.cargo_perfil,
+    p_linkedin_perfil: dados.linkedin_perfil || null,
+    p_foto_perfil: dados.foto_perfil || null,
+    p_aceite_lgpd: dados.aceite_lgpd,
+    p_aceite_imagem_lgpd: dados.aceite_imagem_lgpd ?? false,
+  });
 
-  if (error || !data) {
+  if (error || !idPerfil) {
+    // Só o código do erro: nunca nome, curso ou outro dado pessoal
+    console.error("Falha ao enviar perfil:", error?.code ?? "sem id");
     throw new Error(
       "Ocorreu um problema ao registrar seu perfil. Por favor, tente novamente mais tarde."
     );
   }
 
-  return {
-    id: data.id_perfil,
-    status: data.status_perfil,
-    criado_em: data.data_criacao_perfil,
-  };
+  return { id: idPerfil };
 }
 
 // ---------------------------------------------------------------------------
