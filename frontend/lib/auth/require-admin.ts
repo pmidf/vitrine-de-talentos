@@ -30,17 +30,19 @@ export async function getAdminId(): Promise<string> {
   }
 
   const { data: admin, error: adminError } = await supabase
-    .from("tb_admin")
-    .select("id_admin")
-    .eq("id_admin", user.id)
-    .maybeSingle();
+      .from("tb_admin")
+      .select("id_admin, status_admin")
+      .eq("id_admin", user.id)
+      .maybeSingle();
 
-  if (adminError || !admin) {
-    throw new Error("Acesso negado: usuário não é administrador.");
+    // Admin desativado (status_admin = false) também é barrado
+    if (adminError || !admin?.status_admin) {
+      throw new Error("Acesso negado: usuário não é administrador ativo.");
+    }
+
+
+    return admin.id_admin as string;
   }
-
-  return admin.id_admin as string;
-}
 
 async function checkAdmin(): Promise<string | null> {
   try {
