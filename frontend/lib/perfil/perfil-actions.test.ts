@@ -145,6 +145,26 @@ describe("criarPerfil", () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
+  it("recusa envio com campo isca preenchido sem chamar o banco", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      criarPerfil({ ...perfilValido, site_empresa: "https://spam.example" })
+    ).rejects.toThrow("Ocorreu um problema ao registrar seu perfil.");
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("aceita campo isca vazio e não envia ele ao banco", async () => {
+    setupEnviar({ data: "uuid-ficticio-003", error: null });
+
+    await criarPerfil({ ...perfilValido, site_empresa: "" });
+
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc.mock.calls[0][1]).not.toHaveProperty("site_empresa");
+  });
+
   it("lança erro genérico quando o banco falha, sem dados pessoais no log", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     setupEnviar({ data: null, error: { code: "P0001", message: "falha" } });

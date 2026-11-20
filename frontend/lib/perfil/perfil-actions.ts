@@ -12,6 +12,14 @@ export type PerfilCriado = {
   id: string;
 };
 
+/** Campo isca: fica invisível no formulário. Só robôs preenchem. */
+type CampoIsca = {
+  site_empresa?: string;
+};
+
+const MENSAGEM_ERRO_ENVIO =
+  "Ocorreu um problema ao registrar seu perfil. Por favor, tente novamente mais tarde.";
+
 // ---------------------------------------------------------------------------
 // criarPerfil
 // ---------------------------------------------------------------------------
@@ -21,9 +29,19 @@ export type PerfilCriado = {
  * A função grava o perfil como 'pendente' e o consentimento LGPD de uma vez só.
  * O visitante (anon) não tem permissão de gravar direto na tb_perfil.
  */
-export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
-  // 1. Valida os dados com o mesmo schema do formulário
-  const resultado = perfilSchema.safeParse(input);
+export async function criarPerfil(
+  input: PerfilInput & CampoIsca
+): Promise<PerfilCriado> {
+  // 1. Campo isca: se veio preenchido, é robô. Recusa sem dizer o motivo.
+  const { site_empresa, ...perfil } = input;
+
+  if (site_empresa && site_empresa.trim() !== "") {
+    console.error("Envio recusado: campo isca preenchido");
+    throw new Error(MENSAGEM_ERRO_ENVIO);
+  }
+
+  // 2. Valida os dados com o mesmo schema do formulário
+  const resultado = perfilSchema.safeParse(perfil);
 
   if (!resultado.success) {
     const mensagens = resultado.error.issues
@@ -34,7 +52,7 @@ export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
 
   const dados = resultado.data;
 
-  // 2. Envia ao banco só os campos previstos, um a um
+  // 3. Envia ao banco só os campos previstos, um a um.
   const supabase = await createClient();
 
   const { data: idPerfil, error } = await supabase.rpc("enviar_perfil", {
@@ -50,9 +68,7 @@ export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
   if (error || !idPerfil) {
     // Só o código do erro: nunca nome, curso ou outro dado pessoal
     console.error("Falha ao enviar perfil:", error?.code ?? "sem id");
-    throw new Error(
-      "Ocorreu um problema ao registrar seu perfil. Por favor, tente novamente mais tarde."
-    );
+    throw new Error(MENSAGEM_ERRO_ENVIO);
   }
 
   return { id: idPerfil };
@@ -67,8 +83,6 @@ export async function criarPerfil(input: PerfilInput): Promise<PerfilCriado> {
  * Usa o cliente comum: o RLS do banco já entrega só os aprovados ao visitante.
  * O filtro de status abaixo é uma segunda camada de proteção.
  */
-
-
 export async function buscarPerfisPublicos(): Promise<Voluntario[]> {
   const supabase = await createClient();
 
