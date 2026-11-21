@@ -25,8 +25,13 @@ export type PerfilPendente = {
 // listarPendentes
 // ---------------------------------------------------------------------------
 
+/**
+ * Retorna todos os perfis com status_perfil = 'pendente',
+ * incluindo os dados de consentimento LGPD de cada um.
+ * Apenas administradores autenticados podem chamar esta função.
+ */
 export async function listarPendentes(): Promise<PerfilPendente[]> {
-  await getAdminId();
+  await getAdminId(); // barra quem não é admin antes de qualquer consulta
 
   const supabase = createAdminClient();
 
@@ -58,6 +63,10 @@ export async function listarPendentes(): Promise<PerfilPendente[]> {
 // Moderação: aprovar, rejeitar, suspender e remover
 // ---------------------------------------------------------------------------
 
+/**
+ * Mensagens da função moderar_perfil que podem ser mostradas ao admin.
+ * Qualquer outro erro vira uma mensagem genérica, para não expor o banco.
+ */
 const MENSAGENS_DO_BANCO = new Set([
   "Acesso negado: administrador inativo ou não autenticado.",
   "O motivo é obrigatório para esta ação.",
@@ -68,6 +77,11 @@ const MENSAGENS_DO_BANCO = new Set([
   "Perfil não encontrado.",
 ]);
 
+/**
+ * Chama moderar_perfil com a sessão de quem está logado. O banco descobre
+ * o admin pela sessão (auth.uid()), confere as regras, muda o status e
+ * grava o histórico na mesma transação.
+ */
 async function moderar(
   idPerfil: string,
   novoStatus: "aprovado" | "rejeitado" | "suspenso" | "removido",
@@ -89,10 +103,12 @@ async function moderar(
   }
 }
 
+/** Aprova um perfil pendente. As regras ficam no banco (moderar_perfil). */
 export async function aprovarPerfil(idPerfil: string): Promise<void> {
   await moderar(idPerfil, "aprovado", null, "Não foi possível aprovar o perfil.");
 }
 
+/** Rejeita um perfil pendente. O motivo é obrigatório. */
 export async function rejeitarPerfil(
   idPerfil: string,
   motivo: string,
@@ -103,6 +119,7 @@ export async function rejeitarPerfil(
   await moderar(idPerfil, "rejeitado", motivo.trim(), "Não foi possível rejeitar o perfil.");
 }
 
+/** Suspende um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
 export async function suspenderPerfil(
   idPerfil: string,
   motivo: string,
@@ -113,6 +130,7 @@ export async function suspenderPerfil(
   await moderar(idPerfil, "suspenso", motivo.trim(), "Não foi possível suspender o perfil.");
 }
 
+/** Remove um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
 export async function removerPerfil(
   idPerfil: string,
   motivo: string,
