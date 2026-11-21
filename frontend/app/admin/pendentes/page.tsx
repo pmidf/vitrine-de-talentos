@@ -1,18 +1,33 @@
-import { requireAdmin } from "@/lib/auth/require-admin";
 import { Suspense } from "react";
+import ListaPendentes from "@/components/admin/ListaPendentes";
+import { listarPendentes, type PerfilPendente } from "@/lib/admin/perfil-actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
+import "./pendentes.css";
 
-export default function PendingProfilesPage() {
-  return <Suspense fallback={<p role="status">Carregando...</p>}>
-    <PendingProfilesContent />
-  </Suspense>;
-}
-
-async function PendingProfilesContent() {
-  await requireAdmin();
+export default function PaginaPendentes() {
   return (
     <section aria-labelledby="pending-title">
       <h1 id="pending-title">Perfis pendentes</h1>
-      <p>A lista de perfis pendentes estará disponível em breve.</p>
+      <Suspense fallback={<p role="status">Carregando perfis pendentes…</p>}>
+        <ConteudoPendentes />
+      </Suspense>
     </section>
   );
+}
+
+async function ConteudoPendentes() {
+  await requireAdmin();
+
+  let perfis: PerfilPendente[];
+  try {
+    perfis = await listarPendentes();
+  } catch {
+    return (
+      <p role="alert" className="admin-error">
+        Não foi possível carregar os perfis pendentes. Verifique sua conexão e recarregue a página.
+      </p>
+    );
+  }
+
+  return <ListaPendentes perfisIniciais={perfis} />;
 }
