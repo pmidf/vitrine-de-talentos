@@ -60,7 +60,7 @@ export async function listarPendentes(): Promise<PerfilPendente[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Moderação: aprovar e rejeitar
+// Moderação: aprovar, rejeitar, suspender e remover
 // ---------------------------------------------------------------------------
 
 /**
@@ -69,9 +69,12 @@ export async function listarPendentes(): Promise<PerfilPendente[]> {
  */
 const MENSAGENS_DO_BANCO = new Set([
   "Acesso negado: administrador inativo ou não autenticado.",
+  "O motivo é obrigatório para esta ação.",
   "O motivo da rejeição é obrigatório.",
   "Este perfil não está pendente ou não existe.",
   "Este perfil não pode ser aprovado: falta o aceite da LGPD.",
+  "Este perfil já foi removido e não pode ser moderado.",
+  "Perfil não encontrado.",
 ]);
 
 /**
@@ -81,7 +84,7 @@ const MENSAGENS_DO_BANCO = new Set([
  */
 async function moderar(
   idPerfil: string,
-  novoStatus: "aprovado" | "rejeitado",
+  novoStatus: "aprovado" | "rejeitado" | "suspenso" | "removido",
   motivo: string | null,
   erroPadrao: string,
 ): Promise<void> {
@@ -111,12 +114,29 @@ export async function rejeitarPerfil(
   motivo: string,
 ): Promise<void> {
   if (!motivo?.trim()) {
-    throw new Error("O motivo da rejeição é obrigatório.");
+    throw new Error("O motivo é obrigatório para esta ação.");
   }
-  await moderar(
-    idPerfil,
-    "rejeitado",
-    motivo.trim(),
-    "Não foi possível rejeitar o perfil.",
-  );
+  await moderar(idPerfil, "rejeitado", motivo.trim(), "Não foi possível rejeitar o perfil.");
+}
+
+/** Suspende um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
+export async function suspenderPerfil(
+  idPerfil: string,
+  motivo: string,
+): Promise<void> {
+  if (!motivo?.trim()) {
+    throw new Error("O motivo é obrigatório para esta ação.");
+  }
+  await moderar(idPerfil, "suspenso", motivo.trim(), "Não foi possível suspender o perfil.");
+}
+
+/** Remove um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
+export async function removerPerfil(
+  idPerfil: string,
+  motivo: string,
+): Promise<void> {
+  if (!motivo?.trim()) {
+    throw new Error("O motivo é obrigatório para esta ação.");
+  }
+  await moderar(idPerfil, "removido", motivo.trim(), "Não foi possível remover o perfil.");
 }

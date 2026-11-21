@@ -3,6 +3,8 @@ import {
   listarPendentes,
   aprovarPerfil,
   rejeitarPerfil,
+  suspenderPerfil,
+  removerPerfil,
 } from "./perfil-actions";
 
 // ---------------------------------------------------------------------------
@@ -168,14 +170,14 @@ describe("rejeitarPerfil", () => {
 
   it("recusa rejeição sem motivo, sem chamar o banco", async () => {
     await expect(rejeitarPerfil(idPerfil, "")).rejects.toThrow(
-      "O motivo da rejeição é obrigatório."
+      "O motivo é obrigatório para esta ação."
     );
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("recusa rejeição com motivo só de espaços", async () => {
     await expect(rejeitarPerfil(idPerfil, "   ")).rejects.toThrow(
-      "O motivo da rejeição é obrigatório."
+      "O motivo é obrigatório para esta ação."
     );
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
@@ -203,6 +205,126 @@ describe("rejeitarPerfil", () => {
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
       "Não foi possível rejeitar o perfil."
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// suspenderPerfil
+// ---------------------------------------------------------------------------
+
+describe("suspenderPerfil", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+  const motivo = "Perfil com informações desatualizadas.";
+
+  it("chama moderar_perfil com status suspenso e o motivo sem espaços nas pontas", async () => {
+    await expect(suspenderPerfil(idPerfil, `  ${motivo}  `)).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "suspenso",
+      p_motivo: motivo,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("recusa suspensão sem motivo, sem chamar o banco", async () => {
+    await expect(suspenderPerfil(idPerfil, "")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("recusa suspensão com motivo só de espaços", async () => {
+    await expect(suspenderPerfil(idPerfil, "   ")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("mostra a mensagem do banco quando o perfil já foi removido", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil já foi removido e não pode ser moderado.",
+      },
+    });
+
+    await expect(suspenderPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Este perfil já foi removido e não pode ser moderado."
+    );
+  });
+
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
+
+    await expect(suspenderPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Não foi possível suspender o perfil."
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removerPerfil
+// ---------------------------------------------------------------------------
+
+describe("removerPerfil", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+  const motivo = "Perfil com informações desatualizadas.";
+
+  it("chama moderar_perfil com status removido e o motivo sem espaços nas pontas", async () => {
+    await expect(removerPerfil(idPerfil, `  ${motivo}  `)).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "removido",
+      p_motivo: motivo,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("recusa remoção sem motivo, sem chamar o banco", async () => {
+    await expect(removerPerfil(idPerfil, "")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("recusa remoção com motivo só de espaços", async () => {
+    await expect(removerPerfil(idPerfil, "   ")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("mostra a mensagem do banco quando o perfil já foi removido", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil já foi removido e não pode ser moderado.",
+      },
+    });
+
+    await expect(removerPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Este perfil já foi removido e não pode ser moderado."
+    );
+  });
+
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
+
+    await expect(removerPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Não foi possível remover o perfil."
     );
   });
 });
