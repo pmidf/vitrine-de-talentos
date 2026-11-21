@@ -1,50 +1,49 @@
+import CabecalhoSite from "@/components/CabecalhoSite";
 import HeroVoluntarios from "@/components/HeroVoluntarios";
 import VoluntarioCard from "@/components/VoluntarioCard";
 import { buscarPerfisPublicos } from "@/lib/perfil/perfil-actions";
-import Link from "next/link";
 
 export default async function VoluntariosPage() {
   const voluntarios = await buscarPerfisPublicos();
   return (
-    <main className="min-h-screen bg-fundo px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Discreto: o visitante não precisa, só a equipe que modera */}
-        <nav aria-label="Acesso interno" className="flex justify-end">
-          <Link
-            href="/login"
-            className="rounded-md border-2 border-white bg-pmi-roxo px-4 py-2 text-sm font-semibold text-white shadow-[0_0_0_1px_var(--pmi-roxo)] transition-colors hover:bg-site-roxo hover:shadow-[0_0_0_1px_var(--site-roxo)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pmi-roxo"
+    <main className="min-h-screen bg-fundo">
+      <CabecalhoSite />
+      
+      <HeroVoluntarios />
 
-          >
-            Acesso interno
-          </Link>
-        </nav>
-
-        <HeroVoluntarios />
+      {/* scroll-mt: deixa um respiro quando o botão do hero rola até aqui */}
+      <section
+        id="galeria"
+        aria-labelledby="galeria-titulo"
+        className="mx-auto max-w-7xl scroll-mt-8 px-4 py-12 sm:px-6 lg:px-8"
+      >
+        <h2
+          id="galeria-titulo"
+          className="text-2xl font-bold text-site-roxo sm:text-3xl"
+        >
+          Conheça nossos voluntários
+        </h2>
 
         {voluntarios.length === 0 ? (
-          <section
-            className="mt-12 rounded-2xl bg-white p-8 text-center shadow-sm"
+          <div
+            className="mt-8 rounded-2xl bg-white p-8 text-center shadow-sm"
             aria-live="polite"
           >
-            <h2 className="text-xl font-semibold text-site-roxo">
+            <h3 className="text-xl font-semibold text-site-roxo">
               Nenhum voluntário encontrado
-            </h2>
-
+            </h3>
             <p className="mt-3 text-gray-600">
               Ainda não temos voluntários para exibir. Volte em breve!
             </p>
-          </section>
+          </div>
         ) : (
-          <section
-            className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            aria-label="Galeria de voluntários"
-          >
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {voluntarios.map((voluntario, indice) => (
               <VoluntarioCard key={indice} voluntario={voluntario} />
             ))}
-          </section>
+          </div>
         )}
-      </div>
+      </section>
     </main>
   );
 }
