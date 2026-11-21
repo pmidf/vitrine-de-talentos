@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import LoginForm from "@/components/admin/LoginForm";
 import { CONNECTION_ERROR, INVALID_CREDENTIALS } from "@/lib/auth/messages";
 import "../admin/admin.css";
+import Image from "next/image";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Entrar | Administração da Vitrine de Talentos",
@@ -29,10 +31,17 @@ async function LoginContent({
   return (
     <main className="admin-login-page">
       <section className="admin-card" aria-labelledby="login-title">
+        <Image src="/logo-pmidf.webp" alt="PMI Distrito Federal" width={193} height={75} priority className="admin-login-logo" />
         <p className="admin-eyebrow">Vitrine de Talentos</p>
         <h1 id="login-title">Área de administração</h1>
         <p>Entre com seu e-mail e senha para acessar os perfis pendentes.</p>
         <LoginForm initialError={initialError} />
+        <p className="admin-voltar">
+          <Link href="/voluntarios">
+            <span aria-hidden="true">← </span>Voltar para a galeria
+          </Link>
+        </p>
+
       </section>
     </main>
   );
