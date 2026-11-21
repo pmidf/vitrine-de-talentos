@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listarPendentes,
+  listarModerados,
+  reativarPerfil,
   aprovarPerfil,
   rejeitarPerfil,
   suspenderPerfil,
@@ -16,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   select: vi.fn(),
   eq: vi.fn(),
+  neq: vi.fn(),
   order: vi.fn(),
   rpc: vi.fn(),
 }));
@@ -325,6 +328,111 @@ describe("removerPerfil", () => {
 
     await expect(removerPerfil(idPerfil, motivo)).rejects.toThrow(
       "Não foi possível remover o perfil."
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listarModerados
+// ---------------------------------------------------------------------------
+
+describe("listarModerados", () => {
+  function setup(result: Record<string, unknown>) {
+    mocks.order.mockResolvedValue(result);
+    mocks.neq.mockReturnValue({ order: mocks.order });
+    mocks.select.mockReturnValue({ neq: mocks.neq });
+    mocks.from.mockReturnValue({ select: mocks.select });
+  }
+
+  it("retorna os perfis já moderados, sem pendentes, em ordem alfabética", async () => {
+    const perfisMock = [
+      {
+        id_perfil: "d3000000-2222-3333-4444-555555555555",
+        nome_perfil: "Diego Ferreira",
+        curso_perfil: "Engenharia de Software",
+        cargo_perfil: "Desenvolvedor Front-end",
+        linkedin_perfil: null,
+        foto_perfil: null,
+        status_perfil: "suspenso",
+        tb_lgpd_perfil: { aceite_lgpd: true, aceite_imagem_lgpd: false },
+      },
+    ];
+    setup({ data: perfisMock, error: null });
+
+    expect(await listarModerados()).toEqual(perfisMock);
+    expect(mocks.neq).toHaveBeenCalledWith("status_perfil", "pendente");
+    expect(mocks.order).toHaveBeenCalledWith("nome_perfil", { ascending: true });
+  });
+
+  it("lança erro quando o banco falha", async () => {
+    setup({ data: null, error: { message: "timeout" } });
+    await expect(listarModerados()).rejects.toThrow(
+      "Não foi possível carregar os voluntários."
+    );
+  });
+
+  it("recusa chamada sem admin autenticado", async () => {
+    mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
+    await expect(listarModerados()).rejects.toThrow("Acesso negado");
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reativarPerfil
+// ---------------------------------------------------------------------------
+
+describe("reativarPerfil", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+
+  it("chama moderar_perfil com status aprovado e sem motivo", async () => {
+    await expect(reativarPerfil(idPerfil)).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "aprovado",
+      p_motivo: null,
+    });
+  });
+
+  it("envia o motivo sem espaços nas pontas quando informado", async () => {
+    await reativarPerfil(idPerfil, "  Dados revisados  ");
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "aprovado",
+      p_motivo: "Dados revisados",
+    });
+  });
+
+  it("trata motivo só de espaços como sem motivo", async () => {
+    await reativarPerfil(idPerfil, "   ");
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", expect.objectContaining({ p_motivo: null }));
+  });
+
+  it("mostra a mensagem do banco quando falta o aceite da LGPD", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil não pode ser aprovado: falta o aceite da LGPD.",
+      },
+    });
+
+    await expect(reativarPerfil(idPerfil)).rejects.toThrow(
+      "Este perfil não pode ser aprovado: falta o aceite da LGPD."
+    );
+  });
+
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
+
+    await expect(reativarPerfil(idPerfil)).rejects.toThrow(
+      "Não foi possível reativar o perfil."
     );
   });
 });

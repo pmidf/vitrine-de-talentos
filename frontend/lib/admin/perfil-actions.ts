@@ -21,6 +21,13 @@ export type PerfilPendente = {
   } | null;
 };
 
+/** Status de quem já passou pela moderação (todos, menos pendente). */
+export type StatusModerado = "aprovado" | "rejeitado" | "suspenso" | "removido";
+
+export type PerfilModerado = PerfilPendente & {
+  status_perfil: StatusModerado;
+};
+
 // ---------------------------------------------------------------------------
 // listarPendentes
 // ---------------------------------------------------------------------------
@@ -60,7 +67,46 @@ export async function listarPendentes(): Promise<PerfilPendente[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Moderação: aprovar, rejeitar, suspender e remover
+// listarModerados
+// ---------------------------------------------------------------------------
+
+/**
+ * Retorna todos os perfis que já passaram pela moderação (aprovados,
+ * rejeitados, suspensos e removidos), em ordem alfabética, com o status
+ * e os dados de consentimento LGPD. Pendentes ficam em listarPendentes.
+ */
+export async function listarModerados(): Promise<PerfilModerado[]> {
+  await getAdminId(); // barra quem não é admin antes de qualquer consulta
+
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("tb_perfil")
+    .select(
+      `id_perfil,
+       nome_perfil,
+       curso_perfil,
+       cargo_perfil,
+       linkedin_perfil,
+       foto_perfil,
+       status_perfil,
+       tb_lgpd_perfil (
+         aceite_lgpd,
+         aceite_imagem_lgpd
+       )`
+    )
+    .neq("status_perfil", "pendente")
+    .order("nome_perfil", { ascending: true });
+
+  if (error) {
+    throw new Error("Não foi possível carregar os voluntários.");
+  }
+
+  return (data ?? []) as unknown as PerfilModerado[];
+}
+
+// ---------------------------------------------------------------------------
+// Moderação: aprovar, rejeitar, suspender, remover e reativar
 // ---------------------------------------------------------------------------
 
 /**
@@ -139,4 +185,20 @@ export async function removerPerfil(
     throw new Error("O motivo é obrigatório para esta ação.");
   }
   await moderar(idPerfil, "removido", motivo.trim(), "Não foi possível remover o perfil.");
+}
+
+/**
+ * Reativa um perfil suspenso: ele volta para aprovado e aparece de novo
+ * na vitrine. O motivo é opcional; se vier, fica no histórico.
+ */
+export async function reativarPerfil(
+  idPerfil: string,
+  motivo?: string | null,
+): Promise<void> {
+  await moderar(
+    idPerfil,
+    "aprovado",
+    motivo?.trim() || null,
+    "Não foi possível reativar o perfil.",
+  );
 }
