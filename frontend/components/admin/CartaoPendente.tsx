@@ -2,31 +2,13 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { PerfilPendente } from "@/lib/admin/perfil-actions";
+import { iniciais, linkSeguro } from "./perfil-util";
 
 type Props = {
   perfil: PerfilPendente;
-  // Devolvem uma mensagem de erro em caso de falha e null em caso de sucesso.
   onAprovar: (perfil: PerfilPendente) => Promise<string | null>;
   onRejeitar: (perfil: PerfilPendente, motivo: string) => Promise<string | null>;
 };
-
-function iniciais(nome: string) {
-  return nome.trim().split(/\s+/).filter(Boolean).slice(0, 2)
-    .map((parte) => parte[0].toUpperCase()).join("") || "?";
-}
-
-// O endereço vem de um formulário público: só links https viram link clicável.
-function linkSeguro(valor: string | null) {
-  if (!valor?.trim()) return { tipo: "vazio" as const };
-  try {
-    const url = new URL(valor.trim());
-    if (url.protocol !== "https:") return { tipo: "invalido" as const };
-    const caminho = url.pathname === "/" ? "" : url.pathname;
-    return { tipo: "ok" as const, href: url.toString(), texto: `${url.hostname}${caminho}` };
-  } catch {
-    return { tipo: "invalido" as const };
-  }
-}
 
 type Modo = "inicio" | "aprovar" | "rejeitar";
 
@@ -44,7 +26,6 @@ export default function CartaoPendente({ perfil, onAprovar, onRejeitar }: Props)
   const campoMotivo = useRef<HTMLTextAreaElement>(null);
   const voltarPara = useRef<Modo | null>(null);
 
-  // Mantém o foco no lugar certo ao abrir ou fechar um painel (uso só com teclado).
   useEffect(() => {
     if (modo === "aprovar") botaoConfirmar.current?.focus();
     if (modo === "rejeitar") campoMotivo.current?.focus();
