@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import LogoutButton from "@/components/admin/LogoutButton";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import "./admin.css";
+import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "Administração | Vitrine de Talentos",
@@ -20,7 +21,11 @@ async function ProtectedAdmin({ children }: { children: React.ReactNode }) {
   return (
     <div className="admin-admin-page">
       <header className="admin-header">
-        <div><strong>Vitrine de Talentos</strong><p>Área de administração</p></div>
+        <div className="admin-marca">
+          <Image src="/logo-pmidf.webp" alt="PMI Distrito Federal" width={193} height={75} className="admin-logo" />
+          <div><strong>Vitrine de Talentos</strong><p>Área de administração</p></div>
+        </div>
+
         <LogoutButton />
       </header>
       <main className="admin-content">{children}</main>

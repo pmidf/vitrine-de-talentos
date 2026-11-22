@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listarPendentes,
+  listarModerados,
+  reativarPerfil,
   aprovarPerfil,
   rejeitarPerfil,
+  suspenderPerfil,
+  removerPerfil,
 } from "./perfil-actions";
 
 // ---------------------------------------------------------------------------
@@ -13,29 +17,30 @@ const mocks = vi.hoisted(() => ({
   getAdminId: vi.fn(),
   from: vi.fn(),
   select: vi.fn(),
-  update: vi.fn(),
-  insert: vi.fn(),
   eq: vi.fn(),
-  eq2: vi.fn(),
-  eq3: vi.fn(),
-  maybeSingle: vi.fn(),
-  selectFinal: vi.fn(),
+  neq: vi.fn(),
   order: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock("../auth/require-admin", () => ({
   getAdminId: mocks.getAdminId,
 }));
 
+// Cliente com a chave secreta: usado só pelo listarPendentes
 vi.mock("../supabase/admin-client", () => ({
-  createAdminClient: () => ({
-    from: mocks.from,
-  }),
+  createAdminClient: () => ({ from: mocks.from }),
+}));
+
+// Cliente com a sessão de quem está logado: usado pela moderação
+vi.mock("../supabase/server", () => ({
+  createClient: async () => ({ rpc: mocks.rpc }),
 }));
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getAdminId.mockResolvedValue("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
+  mocks.rpc.mockResolvedValue({ data: null, error: null });
 });
 
 // ---------------------------------------------------------------------------
@@ -95,113 +100,55 @@ describe("listarPendentes", () => {
 describe("aprovarPerfil", () => {
   const idPerfil = "d3000000-2222-3333-4444-555555555555";
 
-  /**
-   * aprovarPerfil faz três chamadas ao banco em sequência:
-   * 1. from("tb_lgpd_perfil").select(...).eq(...).maybeSingle()
-   * 2. from("tb_perfil").update(...).eq(...).eq(...).select()
-   * 3. from("tb_log_perfil").insert(...)
-   *
-   * O mocks.from precisa retornar objetos diferentes a cada chamada.
-   */
-  function setup({
-    lgpdResult = { data: { aceite_lgpd: true }, error: null },
-    updateResult = { data: [{ id_perfil: idPerfil }], error: null },
-    insertResult = { error: null },
-  }: {
-    lgpdResult?: Record<string, unknown>;
-    updateResult?: Record<string, unknown>;
-    insertResult?: Record<string, unknown>;
-  } = {}) {
-    // Cadeia 1: select LGPD → .select().eq().maybeSingle()
-    mocks.maybeSingle.mockResolvedValue(lgpdResult);
-    const eqLgpd = vi.fn().mockReturnValue({ maybeSingle: mocks.maybeSingle });
-    const selectLgpd = vi.fn().mockReturnValue({ eq: eqLgpd });
-    const fromLgpd = { select: selectLgpd };
-
-    // Cadeia 2: update perfil → .update().eq().eq().select()
-    mocks.selectFinal.mockResolvedValue(updateResult);
-    const eq2Update = vi.fn().mockReturnValue({ select: mocks.selectFinal });
-    const eq1Update = vi.fn().mockReturnValue({ eq: eq2Update });
-    const updateFn = vi.fn().mockReturnValue({ eq: eq1Update });
-    const fromUpdate = { update: updateFn };
-
-    // Cadeia 3: insert log → .insert()
-    mocks.insert.mockResolvedValue(insertResult);
-    const fromInsert = { insert: mocks.insert };
-
-    mocks.from
-      .mockReturnValueOnce(fromLgpd)
-      .mockReturnValueOnce(fromUpdate)
-      .mockReturnValueOnce(fromInsert);
-  }
-
-  it("aprova perfil pendente com aceite LGPD e grava log", async () => {
-    setup();
-
+  it("chama moderar_perfil com a sessão, sem chave secreta e sem id do admin", async () => {
     await expect(aprovarPerfil(idPerfil)).resolves.toBeUndefined();
-    expect(mocks.getAdminId).toHaveBeenCalled();
-    expect(mocks.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fk_id_perfil: idPerfil,
-        fk_id_admin: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-      })
-    );
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "aprovado",
+      p_motivo: null,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.getAdminId).not.toHaveBeenCalled();
   });
 
-  it("recusa aprovação sem aceite LGPD", async () => {
-    setup({ lgpdResult: { data: { aceite_lgpd: false }, error: null } });
+  it("mostra a mensagem do banco quando falta o aceite da LGPD", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil não pode ser aprovado: falta o aceite da LGPD.",
+      },
+    });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
-      "consentimento LGPD não registrado"
+      "Este perfil não pode ser aprovado: falta o aceite da LGPD."
     );
   });
 
-  it("recusa aprovação sem LGPD registrada", async () => {
-    setup({ lgpdResult: { data: null, error: null } });
+  it("mostra a mensagem do banco quando o perfil não está pendente", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "P0001", message: "Este perfil não está pendente ou não existe." },
+    });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
-      "consentimento LGPD não registrado"
+      "Este perfil não está pendente ou não existe."
     );
   });
 
-  it("recusa aprovação quando perfil não está pendente ou não existe", async () => {
-    setup({ updateResult: { data: [], error: null } });
-
-    await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
-      "não está pendente ou não existe"
-    );
-    expect(mocks.insert).not.toHaveBeenCalled();
-  });
-
-  it("lança erro quando banco falha na verificação LGPD", async () => {
-    setup({ lgpdResult: { data: null, error: { message: "timeout" } } });
-
-    await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
-      "Não foi possível verificar o consentimento LGPD."
-    );
-  });
-
-  it("lança erro quando banco falha no update", async () => {
-    setup({ updateResult: { data: null, error: { message: "timeout" } } });
+  it("troca erro desconhecido pela mensagem genérica e loga só o código", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
 
     await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
       "Não foi possível aprovar o perfil."
     );
-  });
-
-  it("lança erro quando log não pode ser gravado", async () => {
-    setup({ insertResult: { error: { message: "timeout" } } });
-
-    await expect(aprovarPerfil(idPerfil)).rejects.toThrow(
-      "log não pôde ser gravado"
-    );
-  });
-
-  it("recusa chamada sem admin autenticado", async () => {
-    mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
-
-    await expect(aprovarPerfil(idPerfil)).rejects.toThrow("Acesso negado");
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("Falha ao moderar perfil:", "XX000");
+    log.mockRestore();
   });
 });
 
@@ -213,91 +160,279 @@ describe("rejeitarPerfil", () => {
   const idPerfil = "d3000000-2222-3333-4444-555555555555";
   const motivo = "Informações do cargo não atendem às diretrizes do projeto.";
 
-  /**
-   * rejeitarPerfil faz duas chamadas ao banco:
-   * 1. from("tb_perfil").update(...).eq(...).eq(...).select()
-   * 2. from("tb_log_perfil").insert(...)
-   */
-  function setup({
-    updateResult = { data: [{ id_perfil: idPerfil }], error: null },
-    insertResult = { error: null },
-  }: {
-    updateResult?: Record<string, unknown>;
-    insertResult?: Record<string, unknown>;
-  } = {}) {
-    // Cadeia 1: update perfil
-    mocks.selectFinal.mockResolvedValue(updateResult);
-    const eq2Update = vi.fn().mockReturnValue({ select: mocks.selectFinal });
-    const eq1Update = vi.fn().mockReturnValue({ eq: eq2Update });
-    const updateFn = vi.fn().mockReturnValue({ eq: eq1Update });
-    const fromUpdate = { update: updateFn };
+  it("chama moderar_perfil com o motivo sem espaços nas pontas", async () => {
+    await expect(rejeitarPerfil(idPerfil, `  ${motivo}  `)).resolves.toBeUndefined();
 
-    // Cadeia 2: insert log
-    mocks.insert.mockResolvedValue(insertResult);
-    const fromInsert = { insert: mocks.insert };
-
-    mocks.from
-      .mockReturnValueOnce(fromUpdate)
-      .mockReturnValueOnce(fromInsert);
-  }
-
-  it("rejeita perfil pendente com motivo e grava log", async () => {
-    setup();
-
-    await expect(rejeitarPerfil(idPerfil, motivo)).resolves.toBeUndefined();
-    expect(mocks.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fk_id_perfil: idPerfil,
-        fk_id_admin: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-        motivo_rejeicao_perfil: motivo,
-      })
-    );
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "rejeitado",
+      p_motivo: motivo,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it("recusa rejeição sem motivo", async () => {
+  it("recusa rejeição sem motivo, sem chamar o banco", async () => {
     await expect(rejeitarPerfil(idPerfil, "")).rejects.toThrow(
-      "O motivo da rejeição é obrigatório."
+      "O motivo é obrigatório para esta ação."
     );
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("recusa rejeição com motivo só de espaços", async () => {
     await expect(rejeitarPerfil(idPerfil, "   ")).rejects.toThrow(
-      "O motivo da rejeição é obrigatório."
+      "O motivo é obrigatório para esta ação."
     );
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("recusa rejeição quando perfil não está pendente ou não existe", async () => {
-    setup({ updateResult: { data: [], error: null } });
+  it("mostra a mensagem do banco quando o admin está desativado", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Acesso negado: administrador inativo ou não autenticado.",
+      },
+    });
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
-      "não está pendente ou não existe"
+      "Acesso negado: administrador inativo ou não autenticado."
     );
-    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
-  it("lança erro quando banco falha no update", async () => {
-    setup({ updateResult: { data: null, error: { message: "timeout" } } });
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "42501", message: "permission denied for function moderar_perfil" },
+    });
 
     await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
       "Não foi possível rejeitar o perfil."
     );
   });
+});
 
-  it("lança erro quando log não pode ser gravado", async () => {
-    setup({ insertResult: { error: { message: "timeout" } } });
+// ---------------------------------------------------------------------------
+// suspenderPerfil
+// ---------------------------------------------------------------------------
 
-    await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
-      "log não pôde ser gravado"
+describe("suspenderPerfil", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+  const motivo = "Perfil com informações desatualizadas.";
+
+  it("chama moderar_perfil com status suspenso e o motivo sem espaços nas pontas", async () => {
+    await expect(suspenderPerfil(idPerfil, `  ${motivo}  `)).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "suspenso",
+      p_motivo: motivo,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("recusa suspensão sem motivo, sem chamar o banco", async () => {
+    await expect(suspenderPerfil(idPerfil, "")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("recusa suspensão com motivo só de espaços", async () => {
+    await expect(suspenderPerfil(idPerfil, "   ")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("mostra a mensagem do banco quando o perfil já foi removido", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil já foi removido e não pode ser moderado.",
+      },
+    });
+
+    await expect(suspenderPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Este perfil já foi removido e não pode ser moderado."
+    );
+  });
+
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
+
+    await expect(suspenderPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Não foi possível suspender o perfil."
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removerPerfil
+// ---------------------------------------------------------------------------
+
+describe("removerPerfil", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+  const motivo = "Perfil com informações desatualizadas.";
+
+  it("chama moderar_perfil com status removido e o motivo sem espaços nas pontas", async () => {
+    await expect(removerPerfil(idPerfil, `  ${motivo}  `)).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "removido",
+      p_motivo: motivo,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("recusa remoção sem motivo, sem chamar o banco", async () => {
+    await expect(removerPerfil(idPerfil, "")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("recusa remoção com motivo só de espaços", async () => {
+    await expect(removerPerfil(idPerfil, "   ")).rejects.toThrow(
+      "O motivo é obrigatório para esta ação."
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("mostra a mensagem do banco quando o perfil já foi removido", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil já foi removido e não pode ser moderado.",
+      },
+    });
+
+    await expect(removerPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Este perfil já foi removido e não pode ser moderado."
+    );
+  });
+
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
+
+    await expect(removerPerfil(idPerfil, motivo)).rejects.toThrow(
+      "Não foi possível remover o perfil."
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listarModerados
+// ---------------------------------------------------------------------------
+
+describe("listarModerados", () => {
+  function setup(result: Record<string, unknown>) {
+    mocks.order.mockResolvedValue(result);
+    mocks.neq.mockReturnValue({ order: mocks.order });
+    mocks.select.mockReturnValue({ neq: mocks.neq });
+    mocks.from.mockReturnValue({ select: mocks.select });
+  }
+
+  it("retorna os perfis já moderados, sem pendentes, em ordem alfabética", async () => {
+    const perfisMock = [
+      {
+        id_perfil: "d3000000-2222-3333-4444-555555555555",
+        nome_perfil: "Diego Ferreira",
+        curso_perfil: "Engenharia de Software",
+        cargo_perfil: "Desenvolvedor Front-end",
+        linkedin_perfil: null,
+        foto_perfil: null,
+        status_perfil: "suspenso",
+        tb_lgpd_perfil: { aceite_lgpd: true, aceite_imagem_lgpd: false },
+      },
+    ];
+    setup({ data: perfisMock, error: null });
+
+    expect(await listarModerados()).toEqual(perfisMock);
+    expect(mocks.neq).toHaveBeenCalledWith("status_perfil", "pendente");
+    expect(mocks.order).toHaveBeenCalledWith("nome_perfil", { ascending: true });
+  });
+
+  it("lança erro quando o banco falha", async () => {
+    setup({ data: null, error: { message: "timeout" } });
+    await expect(listarModerados()).rejects.toThrow(
+      "Não foi possível carregar os voluntários."
     );
   });
 
   it("recusa chamada sem admin autenticado", async () => {
     mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
-
-    await expect(rejeitarPerfil(idPerfil, motivo)).rejects.toThrow(
-      "Acesso negado"
-    );
+    await expect(listarModerados()).rejects.toThrow("Acesso negado");
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reativarPerfil
+// ---------------------------------------------------------------------------
+
+describe("reativarPerfil", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+
+  it("chama moderar_perfil com status aprovado e sem motivo", async () => {
+    await expect(reativarPerfil(idPerfil)).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "aprovado",
+      p_motivo: null,
+    });
+  });
+
+  it("envia o motivo sem espaços nas pontas quando informado", async () => {
+    await reativarPerfil(idPerfil, "  Dados revisados  ");
+
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", {
+      p_id_perfil: idPerfil,
+      p_novo_status: "aprovado",
+      p_motivo: "Dados revisados",
+    });
+  });
+
+  it("trata motivo só de espaços como sem motivo", async () => {
+    await reativarPerfil(idPerfil, "   ");
+    expect(mocks.rpc).toHaveBeenCalledWith("moderar_perfil", expect.objectContaining({ p_motivo: null }));
+  });
+
+  it("mostra a mensagem do banco quando falta o aceite da LGPD", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message: "Este perfil não pode ser aprovado: falta o aceite da LGPD.",
+      },
+    });
+
+    await expect(reativarPerfil(idPerfil)).rejects.toThrow(
+      "Este perfil não pode ser aprovado: falta o aceite da LGPD."
+    );
+  });
+
+  it("troca erro desconhecido pela mensagem genérica", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "XX000", message: "detalhe interno do banco" },
+    });
+
+    await expect(reativarPerfil(idPerfil)).rejects.toThrow(
+      "Não foi possível reativar o perfil."
+    );
   });
 });

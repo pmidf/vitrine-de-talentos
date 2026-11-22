@@ -54,7 +54,18 @@ export const perfilSchema = z
       .min(1, "O caminho da foto não pode estar vazio.")
       .nullable()
       .optional(),
+    aceite_lgpd: z.literal(true, {
+      error: "É preciso aceitar os termos da LGPD para enviar o perfil.",
+    }),
+    aceite_imagem_lgpd: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (perfil) => !perfil.foto_perfil || perfil.aceite_imagem_lgpd === true,
+    {
+      message: "É preciso autorizar o uso da imagem para enviar uma foto.",
+      path: ["aceite_imagem_lgpd"],
+    },
+  );
 
 export type PerfilInput = z.infer<typeof perfilSchema>;

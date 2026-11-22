@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { criarPerfil, buscarPerfisPublicos } from "./perfil-actions";
+import type { PerfilInput } from "../validations/perfil";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -7,24 +8,20 @@ import { criarPerfil, buscarPerfisPublicos } from "./perfil-actions";
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
-  insert: vi.fn(),
-  select: vi.fn(),
   selectPublico: vi.fn(),
-  single: vi.fn(),
   eq: vi.fn(),
   order: vi.fn(),
   adminFrom: vi.fn(),
-
+  rpc: vi.fn(),
 }));
 
 vi.mock("../supabase/server", () => ({
-  createClient: async () => ({ from: mocks.from }),
+  createClient: async () => ({ from: mocks.from , rpc: mocks.rpc}),
 }));
 
 vi.mock("../supabase/admin-client", () => ({
   createAdminClient: () => ({ from: mocks.adminFrom }), // separado: para provar que NÃO é usado
 }));
-
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -34,66 +31,85 @@ beforeEach(() => {
 // Dados de teste
 // ---------------------------------------------------------------------------
 
-const perfilValido = {
+const perfilValido: PerfilInput = {
   nome_perfil: "Maria das Couves",
   curso_perfil: "Engenharia de Software",
   cargo_perfil: "Desenvolvedor Backend",
   linkedin_perfil: "https://www.linkedin.com/in/teste",
   foto_perfil: "perfis/maria.webp",
+  aceite_lgpd: true,
+  aceite_imagem_lgpd: true,
 };
+
 
 // ---------------------------------------------------------------------------
 // criarPerfil
 // ---------------------------------------------------------------------------
 
 describe("criarPerfil", () => {
-  function setupInserir(result: Record<string, unknown>) {
-    mocks.single.mockResolvedValue(result);
-    mocks.select.mockReturnValue({ single: mocks.single });
-    mocks.insert.mockReturnValue({ select: mocks.select });
-    mocks.from.mockReturnValue({ insert: mocks.insert });
+  function setupEnviar(result: Record<string, unknown>) {
+    mocks.rpc.mockResolvedValue(result);
   }
 
-  it("salva perfil válido e retorna id, status e criado_em", async () => {
-    setupInserir({
-      data: {
-        id_perfil: "uuid-ficticio-001",
-        status_perfil: "pendente",
-        data_criacao_perfil: "2026-10-31T00:00:00+00:00",
-      },
-      error: null,
-    });
+  it("envia perfil válido pela função enviar_perfil e retorna o id", async () => {
+    setupEnviar({ data: "uuid-ficticio-001", error: null });
 
     const resultado = await criarPerfil(perfilValido);
 
-    expect(resultado.id).toBe("uuid-ficticio-001");
-    expect(resultado.status).toBe("pendente");
-    expect(resultado.criado_em).toBe("2026-10-31T00:00:00+00:00");
+    expect(resultado).toEqual({ id: "uuid-ficticio-001" });
+    expect(mocks.rpc).toHaveBeenCalledWith("enviar_perfil", {
+      p_nome_perfil: "Maria das Couves",
+      p_curso_perfil: "Engenharia de Software",
+      p_cargo_perfil: "Desenvolvedor Backend",
+      p_linkedin_perfil: "https://www.linkedin.com/in/teste",
+      p_foto_perfil: "perfis/maria.webp",
+      p_aceite_lgpd: true,
+      p_aceite_imagem_lgpd: true,
+    });
   });
 
-  it("salva perfil sem linkedin e sem foto", async () => {
-    setupInserir({
-      data: {
-        id_perfil: "uuid-ficticio-002",
-        status_perfil: "pendente",
-        data_criacao_perfil: "2026-10-31T00:00:00+00:00",
-      },
-      error: null,
-    });
+  it("nunca grava direto na tabela", async () => {
+    setupEnviar({ data: "uuid-ficticio-001", error: null });
 
-    const resultado = await criarPerfil({
+    await criarPerfil(perfilValido);
+
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("envia null para linkedin e foto ausentes e aceite de imagem falso", async () => {
+    setupEnviar({ data: "uuid-ficticio-002", error: null });
+
+    await criarPerfil({
       nome_perfil: "João Sem LinkedIn",
       curso_perfil: "Administração",
       cargo_perfil: "Coordenador",
+      aceite_lgpd: true,
     });
 
-    expect(resultado.status).toBe("pendente");
-    expect(mocks.insert).toHaveBeenCalledWith(
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "enviar_perfil",
       expect.objectContaining({
-        linkedin_perfil: null,
-        foto_perfil: null,
+        p_linkedin_perfil: null,
+        p_foto_perfil: null,
+        p_aceite_imagem_lgpd: false,
       })
     );
+  });
+
+  it("rejeita perfil sem aceite da LGPD sem chamar o banco", async () => {
+    await expect(
+      criarPerfil({ ...perfilValido, aceite_lgpd: false } as never)
+    ).rejects.toThrow("É preciso aceitar os termos da LGPD");
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejeita foto sem aceite de imagem sem chamar o banco", async () => {
+    await expect(
+      criarPerfil({ ...perfilValido, aceite_imagem_lgpd: false })
+    ).rejects.toThrow("É preciso autorizar o uso da imagem");
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("rejeita perfil sem campo obrigatório", async () => {
@@ -104,7 +120,7 @@ describe("criarPerfil", () => {
       } as never)
     ).rejects.toThrow();
 
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("rejeita campo fora do escopo", async () => {
@@ -115,7 +131,7 @@ describe("criarPerfil", () => {
       } as never)
     ).rejects.toThrow();
 
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("rejeita linkedin sem HTTPS", async () => {
@@ -126,15 +142,39 @@ describe("criarPerfil", () => {
       })
     ).rejects.toThrow();
 
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("lança erro quando banco falha", async () => {
-    setupInserir({ data: null, error: { message: "timeout" } });
+  it("recusa envio com campo isca preenchido sem chamar o banco", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      criarPerfil({ ...perfilValido, site_empresa: "https://spam.example" })
+    ).rejects.toThrow("Ocorreu um problema ao registrar seu perfil.");
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("aceita campo isca vazio e não envia ele ao banco", async () => {
+    setupEnviar({ data: "uuid-ficticio-003", error: null });
+
+    await criarPerfil({ ...perfilValido, site_empresa: "" });
+
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc.mock.calls[0][1]).not.toHaveProperty("site_empresa");
+  });
+
+  it("lança erro genérico quando o banco falha, sem dados pessoais no log", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    setupEnviar({ data: null, error: { code: "P0001", message: "falha" } });
 
     await expect(criarPerfil(perfilValido)).rejects.toThrow(
       "Ocorreu um problema ao registrar seu perfil."
     );
+
+    expect(JSON.stringify(log.mock.calls)).not.toContain("Maria das Couves");
+    log.mockRestore();
   });
 });
 

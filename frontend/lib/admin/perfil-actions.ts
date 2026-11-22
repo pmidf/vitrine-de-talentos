@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "../supabase/admin-client";
+import { createClient } from "../supabase/server";
 import { getAdminId } from "../auth/require-admin";
 
 // ---------------------------------------------------------------------------
@@ -18,6 +19,13 @@ export type PerfilPendente = {
     aceite_lgpd: boolean;
     aceite_imagem_lgpd: boolean;
   } | null;
+};
+
+/** Status de quem já passou pela moderação (todos, menos pendente). */
+export type StatusModerado = "aprovado" | "rejeitado" | "suspenso" | "removido";
+
+export type PerfilModerado = PerfilPendente & {
+  status_perfil: StatusModerado;
 };
 
 // ---------------------------------------------------------------------------
@@ -59,125 +67,138 @@ export async function listarPendentes(): Promise<PerfilPendente[]> {
 }
 
 // ---------------------------------------------------------------------------
-// aprovarPerfil
+// listarModerados
 // ---------------------------------------------------------------------------
 
 /**
- * Aprova um perfil pendente.
- *
- * Regras:
- * - O perfil precisa estar com status_perfil = 'pendente'.
- * - O consentimento aceite_lgpd precisa ser verdadeiro.
- * - Registra a ação em tb_log_perfil.
+ * Retorna todos os perfis que já passaram pela moderação (aprovados,
+ * rejeitados, suspensos e removidos), em ordem alfabética, com o status
+ * e os dados de consentimento LGPD. Pendentes ficam em listarPendentes.
  */
-export async function aprovarPerfil(idPerfil: string): Promise<void> {
-  const idAdmin = await getAdminId();
+export async function listarModerados(): Promise<PerfilModerado[]> {
+  await getAdminId(); // barra quem não é admin antes de qualquer consulta
+
   const supabase = createAdminClient();
 
-  // 1. Verifica consentimento LGPD antes de qualquer alteração
-  const { data: lgpd, error: lgpdError } = await supabase
-    .from("tb_lgpd_perfil")
-    .select("aceite_lgpd")
-    .eq("fk_id_perfil", idPerfil)
-    .maybeSingle();
-
-  if (lgpdError) {
-    throw new Error("Não foi possível verificar o consentimento LGPD.");
-  }
-
-  if (!lgpd?.aceite_lgpd) {
-    throw new Error(
-      "Este perfil não pode ser aprovado: consentimento LGPD não registrado."
-    );
-  }
-
-  // 2. Atualiza o status — só funciona se o perfil estiver pendente
-  const { data, error: updateError } = await supabase
+  const { data, error } = await supabase
     .from("tb_perfil")
-    .update({ status_perfil: "aprovado" })
-    .eq("id_perfil", idPerfil)
-    .eq("status_perfil", "pendente") // filtro de segurança: só pendente vira aprovado
-    .select("id_perfil");
+    .select(
+      `id_perfil,
+       nome_perfil,
+       curso_perfil,
+       cargo_perfil,
+       linkedin_perfil,
+       foto_perfil,
+       status_perfil,
+       tb_lgpd_perfil (
+         aceite_lgpd,
+         aceite_imagem_lgpd
+       )`
+    )
+    .neq("status_perfil", "pendente")
+    .order("nome_perfil", { ascending: true });
 
-  if (updateError) {
-    throw new Error("Não foi possível aprovar o perfil.");
+  if (error) {
+    throw new Error("Não foi possível carregar os voluntários.");
   }
 
-  if (!data?.length) {
-    throw new Error(
-      "Este perfil não pode ser aprovado: ele não está pendente ou não existe."
-    );
-  }
+  return (data ?? []) as unknown as PerfilModerado[];
+}
 
-  // 3. Grava o log da ação
-  const { error: logError } = await supabase.from("tb_log_perfil").insert({
-    fk_id_perfil: idPerfil,
-    fk_id_admin: idAdmin,
-    data_atualizacao_perfil: new Date().toISOString(),
+// ---------------------------------------------------------------------------
+// Moderação: aprovar, rejeitar, suspender, remover e reativar
+// ---------------------------------------------------------------------------
+
+/**
+ * Mensagens da função moderar_perfil que podem ser mostradas ao admin.
+ * Qualquer outro erro vira uma mensagem genérica, para não expor o banco.
+ */
+const MENSAGENS_DO_BANCO = new Set([
+  "Acesso negado: administrador inativo ou não autenticado.",
+  "O motivo é obrigatório para esta ação.",
+  "O motivo da rejeição é obrigatório.",
+  "Este perfil não está pendente ou não existe.",
+  "Este perfil não pode ser aprovado: falta o aceite da LGPD.",
+  "Este perfil já foi removido e não pode ser moderado.",
+  "Perfil não encontrado.",
+]);
+
+/**
+ * Chama moderar_perfil com a sessão de quem está logado. O banco descobre
+ * o admin pela sessão (auth.uid()), confere as regras, muda o status e
+ * grava o histórico na mesma transação.
+ */
+async function moderar(
+  idPerfil: string,
+  novoStatus: "aprovado" | "rejeitado" | "suspenso" | "removido",
+  motivo: string | null,
+  erroPadrao: string,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("moderar_perfil", {
+    p_id_perfil: idPerfil,
+    p_novo_status: novoStatus,
+    p_motivo: motivo,
   });
 
-  if (logError) {
-    // O perfil já foi aprovado — o log não pode reverter isso.
-    // Lançamos o erro para que o chamador saiba registrar manualmente se necessário.
+  if (error) {
+    console.error("Falha ao moderar perfil:", error.code);
     throw new Error(
-      "Perfil aprovado, mas o log não pôde ser gravado. Informe a administradora."
+      MENSAGENS_DO_BANCO.has(error.message) ? error.message : erroPadrao,
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// rejeitarPerfil
-// ---------------------------------------------------------------------------
+/** Aprova um perfil pendente. As regras ficam no banco (moderar_perfil). */
+export async function aprovarPerfil(idPerfil: string): Promise<void> {
+  await moderar(idPerfil, "aprovado", null, "Não foi possível aprovar o perfil.");
+}
 
-/**
- * Rejeita um perfil pendente.
- *
- * Regras:
- * - O perfil precisa estar com status_perfil = 'pendente'.
- * - O motivo é obrigatório e não pode ser vazio.
- * - Registra a ação em tb_log_perfil com o motivo.
- */
+/** Rejeita um perfil pendente. O motivo é obrigatório. */
 export async function rejeitarPerfil(
   idPerfil: string,
-  motivo: string
+  motivo: string,
 ): Promise<void> {
-  const idAdmin = await getAdminId();
-
   if (!motivo?.trim()) {
-    throw new Error("O motivo da rejeição é obrigatório.");
+    throw new Error("O motivo é obrigatório para esta ação.");
   }
+  await moderar(idPerfil, "rejeitado", motivo.trim(), "Não foi possível rejeitar o perfil.");
+}
 
-  const supabase = createAdminClient();
-
-  // 1. Atualiza o status — só funciona se o perfil estiver pendente
-  const { data, error: updateError } = await supabase
-    .from("tb_perfil")
-    .update({ status_perfil: "rejeitado" })
-    .eq("id_perfil", idPerfil)
-    .eq("status_perfil", "pendente") // filtro de segurança: só pendente vira rejeitado
-    .select("id_perfil");
-
-  if (updateError) {
-    throw new Error("Não foi possível rejeitar o perfil.");
+/** Suspende um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
+export async function suspenderPerfil(
+  idPerfil: string,
+  motivo: string,
+): Promise<void> {
+  if (!motivo?.trim()) {
+    throw new Error("O motivo é obrigatório para esta ação.");
   }
+  await moderar(idPerfil, "suspenso", motivo.trim(), "Não foi possível suspender o perfil.");
+}
 
-  if (!data?.length) {
-    throw new Error(
-      "Este perfil não pode ser rejeitado: ele não está pendente ou não existe."
-    );
+/** Remove um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
+export async function removerPerfil(
+  idPerfil: string,
+  motivo: string,
+): Promise<void> {
+  if (!motivo?.trim()) {
+    throw new Error("O motivo é obrigatório para esta ação.");
   }
+  await moderar(idPerfil, "removido", motivo.trim(), "Não foi possível remover o perfil.");
+}
 
-  // 2. Grava o log da ação com o motivo
-  const { error: logError } = await supabase.from("tb_log_perfil").insert({
-    fk_id_perfil: idPerfil,
-    fk_id_admin: idAdmin,
-    data_atualizacao_perfil: new Date().toISOString(),
-    motivo_rejeicao_perfil: motivo.trim(),
-  });
-
-  if (logError) {
-    throw new Error(
-      "Perfil rejeitado, mas o log não pôde ser gravado. Informe a administradora."
-    );
-  }
+/**
+ * Reativa um perfil suspenso: ele volta para aprovado e aparece de novo
+ * na vitrine. O motivo é opcional; se vier, fica no histórico.
+ */
+export async function reativarPerfil(
+  idPerfil: string,
+  motivo?: string | null,
+): Promise<void> {
+  await moderar(
+    idPerfil,
+    "aprovado",
+    motivo?.trim() || null,
+    "Não foi possível reativar o perfil.",
+  );
 }

@@ -7,6 +7,8 @@ const perfilValido = {
   cargo_perfil: "Desenvolvedora",
   linkedin_perfil: "https://www.linkedin.com/in/ana-silva",
   foto_perfil: "perfis/ana.webp",
+  aceite_lgpd: true,
+  aceite_imagem_lgpd: true,
 };
 
 describe("perfilSchema", () => {
@@ -20,6 +22,7 @@ describe("perfilSchema", () => {
         nome_perfil: "Ana Silva",
         curso_perfil: "Ciência da Computação",
         cargo_perfil: "Desenvolvedora",
+        aceite_lgpd: true,
       }).success,
     ).toBe(true);
   });
@@ -206,5 +209,38 @@ describe("perfilSchema", () => {
       perfilSchema.safeParse({ ...perfilValido, cpf: "000.000.000-00" })
         .success,
     ).toBe(false);
+  });
+
+  it("rejeita perfil sem aceite da LGPD", () => {
+    expect(
+      perfilSchema.safeParse({ ...perfilValido, aceite_lgpd: undefined })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejeita perfil com aceite da LGPD falso", () => {
+    expect(
+      perfilSchema.safeParse({ ...perfilValido, aceite_lgpd: false }).success,
+    ).toBe(false);
+  });
+
+  it("rejeita foto sem aceite de uso de imagem", () => {
+    const resultado = perfilSchema.safeParse({
+      ...perfilValido,
+      aceite_imagem_lgpd: false,
+    });
+
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0].path).toEqual(["aceite_imagem_lgpd"]);
+  });
+
+  it("aceita perfil sem foto e sem aceite de imagem", () => {
+    expect(
+      perfilSchema.safeParse({
+        ...perfilValido,
+        foto_perfil: null,
+        aceite_imagem_lgpd: false,
+      }).success,
+    ).toBe(true);
   });
 });
