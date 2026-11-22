@@ -1,7 +1,7 @@
--- SCRUM-140 / SCRUM-143: testes da função moderar_perfil
+-- SCRUM-140 / SCRUM-143 / SCRUM-144: testes da função moderar_perfil
 -- Roda com: npx supabase test db
 BEGIN;
-SELECT plan(24);
+SELECT plan(33);
 
 -- Perfil de apoio sem consentimento LGPD (só para testar a regra do aceite).
 -- O dono do banco grava direto: o visitante não consegue fazer isso.
@@ -153,10 +153,10 @@ SELECT lives_ok(
 );
 
 SELECT throws_ok(
-    $$SELECT public.moderar_perfil('d3000000-2222-3333-4444-555555555555', 'aprovado')$$,
+    $$SELECT public.moderar_perfil('d3000000-2222-3333-4444-555555555555', 'rejeitado', 'motivo')$$,
     'P0001',
     'Este perfil não está pendente ou não existe.',
-    'Cenario 18: aprovar perfil suspenso -> recusado (aprovar só de pendente)'
+    'Cenario 18: rejeitar perfil suspenso -> recusado (rejeitar só de pendente)'
 );
 
 SELECT lives_ok(
@@ -196,6 +196,72 @@ SELECT results_eq(
        WHERE fk_id_perfil = 'e4000000-3333-4444-5555-666666666666' AND acao_log = 'REMOCAO_PERFIL'$$,
     $$VALUES ('REMOCAO_PERFIL'::text, 'Pedido do voluntário'::text, 'rejeitado'::text)$$,
     'Cenario 24: remocao gerou uma unica linha no historico, com motivo e status anterior'
+);
+
+--------------------------------------------------------------------------------
+-- SCRUM-144: reativar perfil suspenso (admin ativo, Vitória)
+-- Neste ponto: Diego (d3) está suspenso, perfil e4 removido,
+-- perfil f5 (sem aceite LGPD) rejeitado.
+--------------------------------------------------------------------------------
+SELECT set_config('request.jwt.claims', '{"sub": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", "role": "authenticated"}', true);
+SELECT set_config('role', 'authenticated', true);
+
+SELECT lives_ok(
+    $$SELECT public.moderar_perfil('d3000000-2222-3333-4444-555555555555', 'aprovado')$$,
+    'Cenario 25: admin ativo reativa perfil suspenso sem motivo -> sucesso'
+);
+
+SELECT throws_ok(
+    $$SELECT public.moderar_perfil('f5000000-4444-5555-6666-777777777777', 'aprovado')$$,
+    'P0001',
+    'Este perfil não está pendente ou não existe.',
+    'Cenario 26: aprovar perfil rejeitado -> recusado (so pendente ou suspenso)'
+);
+
+SELECT lives_ok(
+    $$SELECT public.moderar_perfil('d3000000-2222-3333-4444-555555555555', 'suspenso', 'Nova suspensao')$$,
+    'Cenario 27: suspender de novo o perfil reativado -> sucesso'
+);
+
+SELECT lives_ok(
+    $$SELECT public.moderar_perfil('d3000000-2222-3333-4444-555555555555', 'aprovado', '  Dados revisados  ')$$,
+    'Cenario 28: reativar com motivo -> sucesso'
+);
+
+SELECT lives_ok(
+    $$SELECT public.moderar_perfil('f5000000-4444-5555-6666-777777777777', 'suspenso', 'Teste LGPD')$$,
+    'Cenario 29: suspender perfil rejeitado sem aceite LGPD -> sucesso'
+);
+
+SELECT throws_ok(
+    $$SELECT public.moderar_perfil('f5000000-4444-5555-6666-777777777777', 'aprovado')$$,
+    'P0001',
+    'Este perfil não pode ser aprovado: falta o aceite da LGPD.',
+    'Cenario 30: reativar perfil sem aceite da LGPD -> recusado'
+);
+
+SELECT throws_ok(
+    $$SELECT public.moderar_perfil('d3000000-2222-3333-4444-555555555555', 'aprovado')$$,
+    'P0001',
+    'Este perfil não está pendente ou não existe.',
+    'Cenario 31: reativar perfil que ja esta aprovado -> recusado'
+);
+RESET ROLE;
+
+SELECT is(
+    (SELECT status_perfil::text FROM public.tb_perfil WHERE id_perfil = 'd3000000-2222-3333-4444-555555555555'),
+    'aprovado',
+    'Cenario 32: perfil reativado voltou para aprovado'
+);
+
+SELECT results_eq(
+    $$SELECT acao_log::text, motivo_rejeicao_perfil, detalhes_log->>'status_anterior', fk_id_admin
+        FROM public.tb_log_perfil
+       WHERE fk_id_perfil = 'd3000000-2222-3333-4444-555555555555' AND acao_log = 'REATIVACAO_PERFIL'
+       ORDER BY motivo_rejeicao_perfil NULLS FIRST$$,
+    $$VALUES ('REATIVACAO_PERFIL'::text, NULL::text, 'suspenso'::text, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid),
+             ('REATIVACAO_PERFIL'::text, 'Dados revisados'::text, 'suspenso'::text, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid)$$,
+    'Cenario 33: cada reativacao gerou uma linha REATIVACAO_PERFIL, com admin e motivo opcional'
 );
 
 SELECT * FROM finish();
