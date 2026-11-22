@@ -33,3 +33,23 @@
 .pendentes-perigo { background: #991b1b; border-color: #991b1b; color: white; }
 .pendentes-perigo:hover:not(:disabled) { background: #7f1d1d; }
 .pendentes-card .admin-error { margin: 0; }
+
+.admin-abas { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 1.25rem; border-bottom: 1px solid #d4d4d4; }
+.admin-abas a { padding: 0.625rem 1rem; border-bottom: 3px solid transparent; margin-bottom: -1px; color: #404040; font-weight: 600; text-decoration: none; }
+.admin-abas a:hover { color: var(--pmi-roxo); }
+.admin-abas a[aria-current="page"] { color: var(--pmi-roxo); border-bottom-color: var(--pmi-roxo); }
+.admin-abas a:focus-visible { outline: 3px solid var(--site-roxo); outline-offset: 2px; }
+
+.moderados-status { display: inline-block; margin-left: 0.5rem; padding: 0.125rem 0.625rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; vertical-align: middle; border: 1px solid; }
+.moderados-status-aprovado { background: #f0fdf4; color: #14532d; border-color: #86efac; }
+.moderados-status-suspenso { background: #fffbeb; color: #78350f; border-color: #fcd34d; }
+.moderados-status-rejeitado { background: #f5f5f5; color: #404040; border-color: #a3a3a3; }
+.moderados-status-removido { background: #fef2f2; color: #7f1d1d; border-color: #fca5a5; }
+.moderados-sem-acao { margin: 0; color: #525252; }
+
+.moderados-filtro { margin: 0 0 1.25rem; padding: 0; border: 0; }
+.moderados-filtro legend { margin-bottom: 0.5rem; font-weight: 600; }
+.moderados-filtro-opcoes { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.moderados-filtro label { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border: 1px solid #d4d4d4; border-radius: 999px; background: white; cursor: pointer; }
+.moderados-filtro label:has(input:checked) { border-color: var(--pmi-roxo); color: var(--pmi-roxo); font-weight: 600; }
+.moderados-filtro input { accent-color: var(--pmi-roxo); }
