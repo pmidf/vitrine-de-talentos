@@ -5,11 +5,16 @@ export type ErrosCadastro = Record<string, string>;
 export const LIMITE_FOTO_RECORTADA = 800 * 1024;
 
 export function validarCadastro(formulario: FormData) {
+  const aceiteLgpd = formulario.get("aceite_lgpd") === "on";
+  const aceiteImagem = formulario.get("aceite_imagem") === "on";
+  
   const perfil = perfilSchema.safeParse({
     nome_perfil: formulario.get("nome_perfil"),
     curso_perfil: formulario.get("curso_perfil"),
     cargo_perfil: formulario.get("cargo_perfil"),
     linkedin_perfil: formulario.get("linkedin_perfil") ?? "",
+    aceite_lgpd: aceiteLgpd,
+    aceite_imagem_lgpd: aceiteImagem,
   });
   const erros: ErrosCadastro = {};
 
@@ -21,8 +26,6 @@ export function validarCadastro(formulario: FormData) {
     erros[campo] ??= mensagem ?? "Informe uma URL válida do LinkedIn.";
   }
 
-  const aceiteLgpd = formulario.get("aceite_lgpd") === "on";
-  const aceiteImagem = formulario.get("aceite_imagem") === "on";
   const arquivo = formulario.get("foto_perfil");
   const foto = arquivo instanceof File && arquivo.size > 0 ? arquivo : null;
 
