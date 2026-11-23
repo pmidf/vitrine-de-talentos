@@ -1,11 +1,13 @@
 import { LIMITE_FOTO_RECORTADA } from "./validacao";
 
+export const TIPOS_ACEITOS = ["image/jpeg", "image/png", "image/webp"];
+
 export async function recortarFoto(arquivo: File): Promise<File> {
-  if (!arquivo.type.startsWith("image/")) {
-    throw new Error("Selecione um arquivo de imagem válido.");
+  if (!TIPOS_ACEITOS.includes(arquivo.type)) {
+    throw new Error("Selecione uma foto em JPEG, PNG ou WebP.");
   }
-  if (arquivo.size > 8 * 1024 * 1024) {
-    throw new Error("Selecione uma imagem de até 8 MB.");
+  if (arquivo.size > 5 * 1024 * 1024) {
+    throw new Error("Selecione uma foto de até 5 MB.");
   }
 
   const url = URL.createObjectURL(arquivo);

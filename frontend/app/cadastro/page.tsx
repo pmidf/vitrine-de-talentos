@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enviarPerfil } from "./actions";
-import { recortarFoto } from "./foto";
+import { recortarFoto, TIPOS_ACEITOS } from "./foto";
 import { validarCadastro, type ErrosCadastro } from "./validacao";
 
 const campos = [
@@ -157,7 +157,7 @@ export default function PaginaCadastro() {
                   id="foto_perfil"
                   name="foto_perfil"
                   type="file"
-                  accept="image/*"
+                  accept={TIPOS_ACEITOS.join(",")}
                   className={estiloCampo}
                   {...acessibilidade("foto_perfil", "foto-ajuda")}
                   onChange={(evento) => {
@@ -167,7 +167,7 @@ export default function PaginaCadastro() {
                   }}
                 />
                 <p id="foto-ajuda" className="mt-1 text-sm text-gray-700">
-                  Escolha uma imagem de até 8 MB. O centro da foto será recortado em quadrado.
+                  Escolha uma foto em JPEG, PNG ou WebP, de até 5 MB. O centro da foto será recortado em quadrado.
                 </p>
                 <ErroCampo campo="foto_perfil" erros={erros} />
                 {preview && (

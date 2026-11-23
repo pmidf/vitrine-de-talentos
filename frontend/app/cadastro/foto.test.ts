@@ -37,3 +37,14 @@ it("recorta o centro de uma foto retangular e devolve um JPEG quadrado", async (
   expect(contexto.drawImage).toHaveBeenCalledWith(imagem, 300, 0, 1000, 1000, 0, 0, 800, 800);
   expect(revogar).toHaveBeenCalledWith("blob:original");
 });
+
+it("recusa formatos fora da regra, como GIF", async () => {
+  const gif = new File(["gif"], "animacao.gif", { type: "image/gif" });
+  await expect(recortarFoto(gif)).rejects.toThrow("Selecione uma foto em JPEG, PNG ou WebP.");
+});
+
+it("recusa fotos acima de 5 MB", async () => {
+  // 5 MB + 1 byte, só com zeros
+  const grande = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "grande.jpg", { type: "image/jpeg" });
+  await expect(recortarFoto(grande)).rejects.toThrow("Selecione uma foto de até 5 MB.");
+});
