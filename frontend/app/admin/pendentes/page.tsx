@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import ListaPendentes from "@/components/admin/ListaPendentes";
 import ListaModerados from "@/components/admin/ListaModerados";
+import IndicadorAba from "@/components/admin/IndicadorAba";
 import { listarModerados, listarPendentes, type PerfilModerado, type PerfilPendente } from "@/lib/admin/perfil-actions";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import "./pendentes.css";
@@ -35,11 +36,11 @@ async function ConteudoAdmin({
       <nav aria-label="Seções da moderação" className="admin-abas">
         <Link href="/admin/pendentes"
           aria-current={abaAtual === "pendentes" ? "page" : undefined}>
-          Pendentes
+          Pendentes <IndicadorAba />
         </Link>
         <Link href="/admin/pendentes?aba=todos"
           aria-current={abaAtual === "todos" ? "page" : undefined}>
-          Todos os voluntários
+          Todos os voluntários <IndicadorAba />
         </Link>
       </nav>
 
