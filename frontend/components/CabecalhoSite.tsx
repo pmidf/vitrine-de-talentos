@@ -1,12 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 
+// Início e Student Club levam ao site do PMI-DF; a Vitrine é esta página.
 const LINKS = [
-  { texto: "Início", href: "/voluntarios" },
-  { texto: "Student Club", href: "/voluntarios" },
-  { texto: "Vitrine de Talentos", href: "/voluntarios", atual: true },  
+  { texto: "Início", href: "https://pmidf.org/" },
+  { texto: "Student Club", href: "https://pmidf.org/student-club/" },
+  { texto: "Vitrine de Talentos", href: "/voluntarios", atual: true },
 ];
-
 const CLASSE_ACESSO =
   "rounded-md border-2 border-white bg-pmi-roxo px-4 py-2 text-sm font-semibold text-white shadow-[0_0_0_1px_var(--pmi-roxo)] transition-colors hover:bg-site-roxo hover:shadow-[0_0_0_1px_var(--site-roxo)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pmi-roxo";
 
@@ -75,11 +75,11 @@ export default function CabecalhoSite() {
       <nav aria-label="Trilha de navegação" className="border-t border-[var(--cor-borda)]">
         <ol className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 text-sm text-[var(--cor-texto-secundario)] sm:px-6 lg:px-8">
           <li>
-            <Link href="/voluntarios" className="hover:text-pmi-roxo">Início</Link>
+            <Link href="https://pmidf.org/" className="hover:text-pmi-roxo">Início</Link>
           </li>
           <li aria-hidden="true">›</li>
           <li>
-            <Link href="/voluntarios" className="hover:text-pmi-roxo">Student Club</Link>
+            <Link href="https://pmidf.org/student-club/" className="hover:text-pmi-roxo">Student Club</Link>
           </li>
           <li aria-hidden="true">›</li>
           <li aria-current="page" className="font-bold text-site-roxo">Vitrine de Talentos</li>
