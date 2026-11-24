@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { enviarPerfil } from "./actions";
 import { recortarFoto, TIPOS_ACEITOS } from "./foto";
 import { validarCadastro, type ErrosCadastro } from "./validacao";
@@ -117,6 +119,19 @@ export default function PaginaCadastro() {
   return (
     <main className="min-h-screen bg-fundo px-4 py-8 sm:py-12">
       <div className="mx-auto max-w-xl">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <Image
+            src="/logo-pmidf.webp"
+            alt="PMI Distrito Federal"
+            width={193}
+            height={75}
+            priority
+            className="h-12 w-auto"
+          />
+          <Link href="/voluntarios" className="font-semibold text-pmi-roxo hover:text-site-roxo">
+            <span aria-hidden="true">← </span>Voltar para a galeria
+          </Link>
+        </div>
         <h1 className="font-titulo text-3xl font-bold text-site-roxo sm:text-4xl">
           Envie seu perfil para a Vitrine de Talentos
         </h1>
@@ -127,6 +142,12 @@ export default function PaginaCadastro() {
               Perfil enviado
             </h2>
             <p>Seu perfil será validado pela equipe e só aparecerá na Vitrine após a aprovação.</p>
+            <Link
+              href="/voluntarios"
+              className="mt-6 inline-flex rounded-lg bg-site-roxo px-5 py-3 font-semibold text-white hover:bg-pmi-roxo"
+            >
+              Voltar para a galeria
+            </Link>
           </section>
         ) : (
           <form ref={formularioRef} method="post" onSubmit={enviarFormulario} noValidate
