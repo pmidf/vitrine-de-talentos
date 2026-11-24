@@ -3,7 +3,16 @@ import { getAdminId, requireAdmin } from "./require-admin";
 
 
 const mocks = vi.hoisted(() => ({ connection: vi.fn(), getUser: vi.fn(), maybeSingle: vi.fn(), redirect: vi.fn(), eq: vi.fn() }));
-vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
+// Imita o cache do React: guarda o resultado até o fim da "requisição".
+// Cada teste é uma requisição nova (os caches são zerados no beforeEach).
+const caches = vi.hoisted(() => ({ zerar: [] as Array<() => void> }));
+vi.mock("react", () => ({
+  cache: <T,>(fn: () => T) => {
+    let guardado: { valor: T } | null = null;
+    caches.zerar.push(() => { guardado = null; });
+    return () => (guardado ??= { valor: fn() }).valor;
+  },
+}));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 vi.mock("../supabase/server", () => ({ createClient: async () => ({
@@ -12,6 +21,7 @@ vi.mock("../supabase/server", () => ({ createClient: async () => ({
 }) }));
 
 beforeEach(() => {
+  caches.zerar.forEach((zerar) => zerar());
   vi.resetAllMocks();
   mocks.connection.mockResolvedValue(undefined);
   mocks.getUser.mockResolvedValue({ data: { user: { id: "admin-id" } }, error: null });
@@ -81,5 +91,35 @@ describe("getAdminId", () => {
   it("recusa quem não está logado", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
     await expect(getAdminId()).rejects.toThrow("Acesso negado");
+  });
+
+  it("recusa quando a conexão com o Supabase falha", async () => {
+    mocks.getUser.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(getAdminId()).rejects.toThrow("Acesso negado");
+  });
+});
+
+describe("uma consulta por requisição (SCRUM-147)", () => {
+  it("requireAdmin e getAdminId reaproveitam a mesma consulta", async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: { id_admin: "admin-id", status_admin: true },
+      error: null,
+    });
+
+    await requireAdmin();
+    await expect(getAdminId()).resolves.toBe("admin-id");
+    await expect(getAdminId()).resolves.toBe("admin-id");
+
+    expect(mocks.getUser).toHaveBeenCalledTimes(1);
+    expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it("o reaproveitamento não libera quem não é admin", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: { status_admin: false }, error: null });
+
+    await requireAdmin();
+    expect(mocks.redirect).toHaveBeenCalledWith("/login?erro=credenciais");
+    await expect(getAdminId()).rejects.toThrow("Acesso negado");
+    expect(mocks.getUser).toHaveBeenCalledTimes(1);
   });
 });
