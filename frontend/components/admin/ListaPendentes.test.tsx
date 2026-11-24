@@ -79,6 +79,13 @@ describe("moderação de perfis pendentes", () => {
     expect(screen.queryByRole("heading", { name: perfil.nome_perfil })).toBeNull();
   });
 
+  it("mostra a foto quando o servidor envia o link temporário", () => {
+    render(<ListaPendentes perfisIniciais={[{ ...perfil, foto_url: "https://exemplo.test/foto.jpg" }]} />);
+
+    const foto = screen.getByRole("img", { name: "Foto de Diego Ferreira" });
+    expect(foto.getAttribute("src")).toBe("https://exemplo.test/foto.jpg");
+  });
+
   it("mostra a mensagem clara do banco quando a aprovação é recusada", async () => {
     const usuario = userEvent.setup();
     vi.mocked(aprovarPerfil).mockRejectedValueOnce(
