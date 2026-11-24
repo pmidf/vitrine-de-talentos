@@ -49,7 +49,7 @@ npm run dev
 
 Abra [http://localhost:3000/voluntarios](http://localhost:3000/voluntarios) no navegador.
 
-Por enquanto, a galeria usa **dados fictícios** (`frontend/lib/mock-voluntarios.ts`), então o front roda sem configurar o banco.
+A galeria e o cadastro leem o banco, então antes configure as variáveis (passo 3) e suba o Supabase local (veja "Configuração do Banco de Dados").
 
 Outros comandos úteis (também dentro de `frontend/`):
 
@@ -61,20 +61,24 @@ Outros comandos úteis (também dentro de `frontend/`):
 
 ---
 
-### 3. Configurar as Variáveis de Ambiente (quando o front usar o banco)
+### 3. Configurar as Variáveis de Ambiente
 
-Só será necessário quando a galeria passar a buscar os dados no Supabase. Crie o arquivo dentro de `frontend/`, a partir do exemplo:
+Crie o arquivo `frontend/.env.local` a partir do exemplo (rode na raiz do repositório):
 
 ```bash
-cp supabase/.env.example frontend/.env.local
+cp .env.example frontend/.env.local
 ```
 
-E preencha com as credenciais do seu ambiente (local ou nuvem):
+E preencha com as credenciais do ambiente (no local, os valores aparecem em `npx supabase status`):
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase_aqui
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-local-ou-nuvem
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anon_aqui
+SUPABASE_serviceRoleKey=sua_chave_service_role_aqui
+STORAGE_bucketFotos=fotos-perfil
 ```
+
+O que cada uma faz e quais são secretas: veja [docs/VARIAVEIS.md](docs/VARIAVEIS.md).
 
 *Nota: o `.env.local` está no `.gitignore` e jamais deve ser versionado.*
 
@@ -126,16 +130,18 @@ Após validar todas as novas alterações de schema (migrations) e triggers loca
    ```bash
    npx supabase link --project-ref seu-project-ref-aqui
    ```
-3. Envie e aplique as migrations pendentes para a nuvem:
+3. Confira o que vai ser aplicado e só então aplique. **Atenção:** na Supabase CLI 3.x, sem `--remote` os comandos agem no banco **local**.
    ```bash
-   npx supabase db push
+   npx supabase migration list --remote      # o que já está em produção
+   npx supabase db push --remote --dry-run   # simula, sem aplicar
+   npx supabase db push --remote             # aplica
    ```
 *Nota: Somente envie alterações quando o ambiente já tiver sido testado e documentado, assim como relatado para os demais desenvolvedores.*
 
 ## Estrutura de Arquivos da Infraestrutura
 
 ```text
-vitrine-dos-saberes/
+vitrine-de-talentos/
 ├── .env.example              # Exemplo de configuração de variáveis de ambiente
 ├── .env.local                # Variáveis locais (git-ignored)
 ├── supabase/
