@@ -40,6 +40,12 @@
 .admin-abas a[aria-current="page"] { color: var(--pmi-roxo); border-bottom-color: var(--pmi-roxo); }
 .admin-abas a:focus-visible { outline: 3px solid var(--site-roxo); outline-offset: 2px; }
 
+/* Indicador de carregamento da aba (SCRUM-147): sempre na tela, só muda a opacidade */
+.admin-aba-indicador { display: inline-block; width: 0.5rem; height: 0.5rem; margin-left: 0.375rem; border-radius: 50%; background: var(--pmi-roxo); vertical-align: middle; opacity: 0; transition: opacity 0.15s; }
+.admin-aba-indicador.is-pendente { opacity: 1; animation: admin-aba-pulsar 0.8s ease-in-out infinite alternate; }
+@keyframes admin-aba-pulsar { from { transform: scale(0.6); } to { transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .admin-aba-indicador.is-pendente { animation: none; } }
+
 .moderados-status { display: inline-block; margin-left: 0.5rem; padding: 0.125rem 0.625rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; vertical-align: middle; border: 1px solid; }
 .moderados-status-aprovado { background: #f0fdf4; color: #14532d; border-color: #86efac; }
 .moderados-status-suspenso { background: #fffbeb; color: #78350f; border-color: #fcd34d; }
