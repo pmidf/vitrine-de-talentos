@@ -1,4 +1,3 @@
-import Link from "next/link";
 import CabecalhoSite from "@/components/CabecalhoSite";
 import HeroVoluntarios from "@/components/HeroVoluntarios";
 import VoluntarioCard from "@/components/VoluntarioCard";
@@ -11,15 +10,6 @@ export default async function VoluntariosPage() {
       <CabecalhoSite />
 
       <HeroVoluntarios />
-
-      <div className="px-4 pt-8 text-center">
-        <Link
-          href="/cadastro"
-          className="inline-flex rounded-lg bg-site-roxo px-5 py-3 font-semibold text-white hover:bg-pmi-roxo"
-        >
-          Envie seu perfil
-        </Link>
-      </div>
 
       {/* scroll-mt: deixa um respiro quando o botão do hero rola até aqui */}
       <section
