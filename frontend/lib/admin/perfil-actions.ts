@@ -3,6 +3,7 @@
 import { createAdminClient } from "../supabase/admin-client";
 import { createClient } from "../supabase/server";
 import { getAdminId } from "../auth/require-admin";
+import { apagarFoto, caminhoValido, gerarLinksFotos } from "../storage/fotos";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -15,6 +16,7 @@ export type PerfilPendente = {
   cargo_perfil: string;
   linkedin_perfil: string | null;
   foto_perfil: string | null;
+  foto_url?: string | null;
   tb_lgpd_perfil: {
     aceite_lgpd: boolean;
     aceite_imagem_lgpd: boolean;
@@ -27,6 +29,16 @@ export type StatusModerado = "aprovado" | "rejeitado" | "suspenso" | "removido";
 export type PerfilModerado = PerfilPendente & {
   status_perfil: StatusModerado;
 };
+
+const VALIDADE_LINK_ADMIN = 300;
+
+async function comLinksDasFotos<T extends PerfilPendente>(perfis: T[]): Promise<T[]> {
+  const links = await gerarLinksFotos(perfis.map((p) => p.foto_perfil), VALIDADE_LINK_ADMIN);
+  return perfis.map((perfil) => {
+    const link = links.get(perfil.foto_perfil ?? "");
+    return link ? { ...perfil, foto_url: link } : perfil;
+  });
+}
 
 // ---------------------------------------------------------------------------
 // listarPendentes
@@ -63,7 +75,7 @@ export async function listarPendentes(): Promise<PerfilPendente[]> {
     throw new Error("Não foi possível carregar os perfis pendentes.");
   }
 
-  return (data ?? []) as unknown as PerfilPendente[];
+  return comLinksDasFotos((data ?? []) as unknown as PerfilPendente[]);
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +114,7 @@ export async function listarModerados(): Promise<PerfilModerado[]> {
     throw new Error("Não foi possível carregar os voluntários.");
   }
 
-  return (data ?? []) as unknown as PerfilModerado[];
+  return comLinksDasFotos((data ?? []) as unknown as PerfilModerado[]);
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +166,31 @@ export async function aprovarPerfil(idPerfil: string): Promise<void> {
   await moderar(idPerfil, "aprovado", null, "Não foi possível aprovar o perfil.");
 }
 
+/**
+ * Apaga a foto de um perfil que saiu da vitrine de vez (rejeitado ou removido)
+ * e limpa o caminho no banco (LGPD: não guardar imagem sem uso).
+ * Roda só depois da moderação dar certo e nunca desfaz a moderação:
+ * se o Storage falhar, o caminho fica no banco e dá para apagar depois.
+ */
+async function descartarFoto(idPerfil: string): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("tb_perfil")
+      .select("foto_perfil")
+      .eq("id_perfil", idPerfil)
+      .maybeSingle();
+
+    const caminho = data?.foto_perfil;
+    if (!caminhoValido(caminho)) return;      // sem foto (ou caminho fora do padrão)
+    if (!(await apagarFoto(caminho))) return; // não apagou: mantém o caminho para tentar de novo
+
+    await supabase.from("tb_perfil").update({ foto_perfil: null }).eq("id_perfil", idPerfil);
+  } catch {
+    console.error("Falha ao descartar a foto de um perfil retirado da vitrine.");
+  }
+}
+
 /** Rejeita um perfil pendente. O motivo é obrigatório. */
 export async function rejeitarPerfil(
   idPerfil: string,
@@ -163,6 +200,7 @@ export async function rejeitarPerfil(
     throw new Error("O motivo é obrigatório para esta ação.");
   }
   await moderar(idPerfil, "rejeitado", motivo.trim(), "Não foi possível rejeitar o perfil.");
+  await descartarFoto(idPerfil);
 }
 
 /** Suspende um perfil (qualquer status, exceto removido). O motivo é obrigatório. */
@@ -185,6 +223,7 @@ export async function removerPerfil(
     throw new Error("O motivo é obrigatório para esta ação.");
   }
   await moderar(idPerfil, "removido", motivo.trim(), "Não foi possível remover o perfil.");
+  await descartarFoto(idPerfil);
 }
 
 /**

@@ -88,10 +88,15 @@ export default function CartaoPendente({ perfil, onAprovar, onRejeitar }: Props)
     <li className="pendentes-card" aria-busy={enviando}>
       <article aria-labelledby={`${id}-nome`}>
         <div className="pendentes-topo">
-          <div role="img" aria-label={`Foto não disponível para ${perfil.nome_perfil}`}
-            className="pendentes-foto pendentes-foto-padrao">
-            {iniciais(perfil.nome_perfil)}
-          </div>
+          {perfil.foto_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={perfil.foto_url} alt={`Foto de ${perfil.nome_perfil}`} className="pendentes-foto" />
+          ) : (
+            <div role="img" aria-label={`Foto não disponível para ${perfil.nome_perfil}`}
+              className="pendentes-foto pendentes-foto-padrao">
+              {iniciais(perfil.nome_perfil)}
+            </div>
+          )}
 
           <div>
             <h2 id={`${id}-nome`} className="pendentes-nome">{perfil.nome_perfil}</h2>

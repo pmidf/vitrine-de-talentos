@@ -49,4 +49,11 @@ describe("Página de cadastro", () => {
     expect(dados.get("foto_perfil")).toBeNull();
     expect(dados.get("site_empresa")).toBe("");
   });
+    it("mostra a logo do PMI-DF e o link de volta para a galeria", () => {
+    render(<PaginaCadastro />);
+
+    expect(screen.getByRole("img", { name: "PMI Distrito Federal" })).toBeTruthy();
+    const voltar = screen.getByRole("link", { name: "Voltar para a galeria" });
+    expect(voltar.getAttribute("href")).toBe("/voluntarios");
+  });
 });

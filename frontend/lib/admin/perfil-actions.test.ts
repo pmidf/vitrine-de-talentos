@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listarPendentes,
   listarModerados,
@@ -21,6 +21,11 @@ const mocks = vi.hoisted(() => ({
   neq: vi.fn(),
   order: vi.fn(),
   rpc: vi.fn(),
+  maybeSingle: vi.fn(),
+  update: vi.fn(),
+  updateEq: vi.fn(),
+  remove: vi.fn(),
+  createSignedUrls: vi.fn(),
 }));
 
 vi.mock("../auth/require-admin", () => ({
@@ -29,7 +34,12 @@ vi.mock("../auth/require-admin", () => ({
 
 // Cliente com a chave secreta: usado só pelo listarPendentes
 vi.mock("../supabase/admin-client", () => ({
-  createAdminClient: () => ({ from: mocks.from }),
+    createAdminClient: () => ({
+    from: mocks.from,
+    storage: {
+      from: () => ({ remove: mocks.remove, createSignedUrls: mocks.createSignedUrls }),
+    },
+  }),
 }));
 
 // Cliente com a sessão de quem está logado: usado pela moderação
@@ -41,7 +51,22 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.getAdminId.mockResolvedValue("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11");
   mocks.rpc.mockResolvedValue({ data: null, error: null });
+  // Descarte da foto: por padrão, o perfil não tem foto
+  mocks.maybeSingle.mockResolvedValue({ data: { foto_perfil: null }, error: null });
+  mocks.from.mockReturnValue({
+    select: () => ({ eq: () => ({ maybeSingle: mocks.maybeSingle }) }),
+    update: mocks.update,
+  });
+  mocks.update.mockReturnValue({ eq: mocks.updateEq });
+  mocks.updateEq.mockResolvedValue({ error: null });
+  mocks.remove.mockResolvedValue({ error: null });
 });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+const CAMINHO_FOTO = "perfis/0f8b7c2e-1111-2222-3333-444444444444.jpg";
 
 // ---------------------------------------------------------------------------
 // listarPendentes
@@ -90,6 +115,22 @@ describe("listarPendentes", () => {
   it("recusa chamada sem admin autenticado", async () => {
     mocks.getAdminId.mockRejectedValue(new Error("Acesso negado"));
     await expect(listarPendentes()).rejects.toThrow("Acesso negado");
+  });
+
+  it("acrescenta o link temporário (5 min) da foto do bucket", async () => {
+    vi.stubEnv("STORAGE_bucketFotos", "fotos-perfil");
+    setup({
+      data: [{ id_perfil: "d3000000-2222-3333-4444-555555555555", foto_perfil: CAMINHO_FOTO }],
+      error: null,
+    });
+    mocks.createSignedUrls.mockResolvedValue({
+      data: [{ path: CAMINHO_FOTO, signedUrl: "https://exemplo.test/assinado.jpg" }],
+    });
+
+    const [perfil] = await listarPendentes();
+
+    expect(mocks.createSignedUrls).toHaveBeenCalledWith([CAMINHO_FOTO], 300);
+    expect(perfil.foto_url).toBe("https://exemplo.test/assinado.jpg");
   });
 });
 
@@ -168,7 +209,9 @@ describe("rejeitarPerfil", () => {
       p_novo_status: "rejeitado",
       p_motivo: motivo,
     });
-    expect(mocks.from).not.toHaveBeenCalled();
+    // A moderação usa a sessão (rpc). A chave secreta só entra depois, para a foto.
+    expect(mocks.rpc.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.from.mock.invocationCallOrder[0]);
   });
 
   it("recusa rejeição sem motivo, sem chamar o banco", async () => {
@@ -288,7 +331,9 @@ describe("removerPerfil", () => {
       p_novo_status: "removido",
       p_motivo: motivo,
     });
-    expect(mocks.from).not.toHaveBeenCalled();
+    // A moderação usa a sessão (rpc). A chave secreta só entra depois, para a foto.
+    expect(mocks.rpc.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.from.mock.invocationCallOrder[0]);
   });
 
   it("recusa remoção sem motivo, sem chamar o banco", async () => {
@@ -434,5 +479,54 @@ describe("reativarPerfil", () => {
     await expect(reativarPerfil(idPerfil)).rejects.toThrow(
       "Não foi possível reativar o perfil."
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Descarte da foto (LGPD)
+// ---------------------------------------------------------------------------
+
+describe("descarte da foto", () => {
+  const idPerfil = "d3000000-2222-3333-4444-555555555555";
+
+  beforeEach(() => {
+    vi.stubEnv("STORAGE_bucketFotos", "fotos-perfil");
+    mocks.maybeSingle.mockResolvedValue({ data: { foto_perfil: CAMINHO_FOTO }, error: null });
+  });
+
+  it("apaga a foto e limpa o caminho ao rejeitar", async () => {
+    await rejeitarPerfil(idPerfil, "Cargo não confere");
+
+    expect(mocks.remove).toHaveBeenCalledWith([CAMINHO_FOTO]);
+    expect(mocks.update).toHaveBeenCalledWith({ foto_perfil: null });
+    expect(mocks.updateEq).toHaveBeenCalledWith("id_perfil", idPerfil);
+  });
+
+  it("apaga a foto e limpa o caminho ao remover", async () => {
+    await removerPerfil(idPerfil, "Pedido do voluntário");
+
+    expect(mocks.remove).toHaveBeenCalledWith([CAMINHO_FOTO]);
+    expect(mocks.update).toHaveBeenCalledWith({ foto_perfil: null });
+  });
+
+  it("mantém a foto ao suspender, porque o perfil pode ser reativado", async () => {
+    await suspenderPerfil(idPerfil, "Revisão do cargo");
+
+    expect(mocks.remove).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("mantém o caminho no banco se o Storage falhar, sem desfazer a moderação", async () => {
+    mocks.remove.mockResolvedValue({ error: { message: "indisponível" } });
+
+    await expect(removerPerfil(idPerfil, "Pedido do voluntário")).resolves.toBeUndefined();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("não mexe na foto quando o banco recusa a moderação", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "erro qualquer" } });
+
+    await expect(rejeitarPerfil(idPerfil, "Cargo não confere")).rejects.toThrow();
+    expect(mocks.remove).not.toHaveBeenCalled();
   });
 });

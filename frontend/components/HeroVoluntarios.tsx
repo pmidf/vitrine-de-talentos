@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Hero da Vitrine: faixa roxa de destaque no topo da galeria (SCRUM-142).
 export default function HeroVoluntarios() {
   return (
@@ -5,7 +7,6 @@ export default function HeroVoluntarios() {
       aria-labelledby="hero-titulo"
       className="relative overflow-hidden text-site-roxo"
     >
-      {/* Linhas diagonais: só decoração, escondidas no celular */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 right-0 hidden w-2/5 md:block"
@@ -31,6 +32,16 @@ export default function HeroVoluntarios() {
         <p className="mt-5 text-xl font-bold sm:text-2xl">
           As pessoas que constroem o Student Club.
         </p>
+
+        <div className="mt-8 flex flex-wrap items-center gap-4">
+          <p className="text-lg font-semibold">É voluntário do Student Club?</p>
+          <Link
+            href="/cadastro"
+            className="inline-flex rounded-lg bg-site-roxo px-6 py-3 font-semibold text-white transition-colors hover:bg-pmi-roxo focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pmi-roxo"
+          >
+            Envie seu perfil
+          </Link>
+        </div>
 
       </div>
 
