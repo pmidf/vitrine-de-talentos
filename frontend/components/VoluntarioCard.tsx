@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Voluntario } from "@/types/voluntarios";
 
 type VoluntarioCardProps = {
@@ -29,8 +30,13 @@ export default function VoluntarioCard({
     <article className="flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
       <div className="flex justify-center bg-gray-50 px-6 pt-7">
         {foto_perfil ? (
-          <img
+
+
+          <Image
             src={foto_perfil}
+            width={112}
+            height={112}
+            unoptimized
             alt={`Foto de ${nome_perfil}`}
             className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-sm"
           />
@@ -46,15 +52,15 @@ export default function VoluntarioCard({
       </div>
 
       <div className="flex flex-1 flex-col p-6 text-center">
-        <h2 className="break-words text-lg font-bold text-site-roxo">
+        <h3 className="[overflow-wrap:anywhere] text-lg font-bold text-site-roxo">
           {nome_perfil}
-        </h2>
+        </h3>
 
-        <p className="mt-2 break-words text-sm leading-6 text-gray-600">
+        <p className="mt-2 [overflow-wrap:anywhere] text-sm leading-6 text-gray-600">
           {curso_perfil}
         </p>
 
-        <p className="mt-3 break-words text-sm font-semibold text-site-azul">
+        <p className="mt-3 [overflow-wrap:anywhere] text-sm font-semibold text-site-azul">
           {cargo_perfil}
         </p>
 
@@ -65,7 +71,7 @@ export default function VoluntarioCard({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Ver o LinkedIn de ${nome_perfil} em uma nova aba`}
-              className="inline-flex rounded-lg bg-pmi-roxo px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-pmi-roxo focus:ring-offset-2"
+              className="inline-flex rounded-lg bg-pmi-roxo px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-site-roxo"
             >
               LinkedIn
             </a>
@@ -77,7 +83,7 @@ export default function VoluntarioCard({
         </div>
 
         {perfilFicticio && (
-          <p className="mt-4 text-xs text-gray-400">
+          <p className="mt-4 text-xs text-gray-600">
             Perfil demonstrativo
           </p>
         )}

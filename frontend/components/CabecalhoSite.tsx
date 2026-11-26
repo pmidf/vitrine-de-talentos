@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 
-// Início e Student Club levam ao site do PMI-DF; a Vitrine é esta página.
 const LINKS = [
   { texto: "Início", href: "https://pmidf.org/" },
   { texto: "Student Club", href: "https://pmidf.org/student-club/" },
@@ -24,7 +23,6 @@ export default function CabecalhoSite() {
           />
         </Link>
 
-        {/* Computador: links lado a lado */}
         <nav aria-label="Principal" className="hidden items-center gap-8 lg:flex">
           {LINKS.map((link) => (
             <Link
@@ -43,14 +41,13 @@ export default function CabecalhoSite() {
           </Link>
         </nav>
 
-        {/* Celular: botão Menu que abre e fecha a lista */}
         <details className="relative lg:hidden">
           <summary className="cursor-pointer list-none rounded-md border border-[var(--cor-borda)] px-4 py-2 font-semibold text-site-roxo [&::-webkit-details-marker]:hidden">
             Menu
           </summary>
           <nav
             aria-label="Principal"
-            className="absolute right-0 z-10 mt-2 flex w-64 flex-col gap-1 rounded-lg border border-[var(--cor-borda)] bg-white p-3 shadow-lg"
+            className="absolute right-0 z-10 mt-2 flex w-64 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-lg border border-[var(--cor-borda)] bg-white p-3 shadow-lg"
           >
             {LINKS.map((link) => (
               <Link
@@ -71,7 +68,6 @@ export default function CabecalhoSite() {
         </details>
       </div>
 
-      {/* Trilha de navegação */}
       <nav aria-label="Trilha de navegação" className="border-t border-[var(--cor-borda)]">
         <ol className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 text-sm text-[var(--cor-texto-secundario)] sm:px-6 lg:px-8">
           <li>

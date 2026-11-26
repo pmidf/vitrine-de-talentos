@@ -1,4 +1,3 @@
-import CabecalhoSite from "@/components/CabecalhoSite";
 import HeroVoluntarios from "@/components/HeroVoluntarios";
 import VoluntarioCard from "@/components/VoluntarioCard";
 import { buscarPerfisPublicos } from "@/lib/perfil/perfil-actions";
@@ -6,12 +5,9 @@ import { buscarPerfisPublicos } from "@/lib/perfil/perfil-actions";
 export default async function VoluntariosPage() {
   const voluntarios = await buscarPerfisPublicos();
   return (
-    <main className="min-h-screen bg-fundo">
-      <CabecalhoSite />
-
+    <>
       <HeroVoluntarios />
 
-      {/* scroll-mt: deixa um respiro quando o botão do hero rola até aqui */}
       <section
         id="galeria"
         aria-labelledby="galeria-titulo"
@@ -37,13 +33,15 @@ export default async function VoluntariosPage() {
             </p>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {voluntarios.map((voluntario, indice) => (
-              <VoluntarioCard key={indice} voluntario={voluntario} />
+              <li key={indice} className="min-w-0">
+                <VoluntarioCard voluntario={voluntario} />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
-    </main>
+    </>
   );
 }
