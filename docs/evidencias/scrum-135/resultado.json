@@ -1,0 +1,51 @@
+{
+  "lighthouse": "13.6.0",
+  "chrome": "Chrome/158.0.8127.38",
+  "configuracao": "mobile",
+  "nota": 100,
+  "contraste": 1,
+  "falhas": [],
+  "larguras": [
+    {
+      "largura": 360,
+      "documento": 360,
+      "colunas": 1,
+      "fotos": [
+        "Foto de Ana Exemplo"
+      ],
+      "listas": 1,
+      "perfis": 3
+    },
+    {
+      "largura": 768,
+      "documento": 768,
+      "colunas": 2,
+      "fotos": [
+        "Foto de Ana Exemplo"
+      ],
+      "listas": 1,
+      "perfis": 3
+    },
+    {
+      "largura": 1440,
+      "documento": 1440,
+      "colunas": 4,
+      "fotos": [
+        "Foto de Ana Exemplo"
+      ],
+      "listas": 1,
+      "perfis": 3
+    }
+  ],
+  "teclado": [
+    "Pular para o conteúdo",
+    "Envie seu perfil",
+    "Ver o LinkedIn de Ana Exemplo em uma nova aba",
+    "Ver o LinkedIn de Catarina Exemplo da Silva Albuquerque Montenegro em uma nova aba",
+    "Menu",
+    "Início",
+    "Student Club",
+    "Vitrine de Talentos",
+    "Acesso interno"
+  ]
+}

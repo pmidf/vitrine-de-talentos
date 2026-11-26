@@ -1,0 +1,4 @@
+.galeria-publica :focus-visible {
+  outline: 3px solid var(--site-roxo);
+  outline-offset: 3px;
+}
